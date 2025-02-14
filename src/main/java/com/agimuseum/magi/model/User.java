@@ -31,6 +31,9 @@ public class User implements UserDetails {
     @Enumerated(value = EnumType.STRING)
     private Role role;
 
+    @OneToOne(mappedBy = "user")
+    private ForgotPassword forgotPassword;
+
     public Integer getId() {
         return id;
     }
