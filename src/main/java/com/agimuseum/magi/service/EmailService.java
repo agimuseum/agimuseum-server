@@ -1,6 +1,7 @@
 package com.agimuseum.magi.service;
 
 import com.agimuseum.magi.dto.MailBody;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -8,7 +9,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailService {
 
-    private final JavaMailSender javaMailSender;
+    @Autowired
+    private JavaMailSender javaMailSender;
+//    private final JavaMailSender javaMailSender;
 
 
     public EmailService(JavaMailSender javaMailSender) {

@@ -1,16 +1,21 @@
 package com.agimuseum.magi.controller;
 
+import com.agimuseum.magi.dto.ChangePassword;
 import com.agimuseum.magi.dto.MailBody;
 import com.agimuseum.magi.model.ForgotPassword;
 import com.agimuseum.magi.model.User;
 import com.agimuseum.magi.repository.ForgotPasswordRepository;
 import com.agimuseum.magi.repository.UserRepository;
 import com.agimuseum.magi.service.EmailService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.Date;
+import java.util.Objects;
 import java.util.Random;
 
 @RestController
@@ -20,23 +25,25 @@ public class ForgotPasswordController {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final ForgotPasswordRepository forgotPasswordRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public ForgotPasswordController(UserRepository userRepository, EmailService emailService, ForgotPasswordRepository forgotPasswordRepository) {
+    public ForgotPasswordController(UserRepository userRepository, EmailService emailService, ForgotPasswordRepository forgotPasswordRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.forgotPasswordRepository = forgotPasswordRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // send mail for email verification
-    @PostMapping("/verifyEmail/{email}")
-    public ResponseEntity<String> verifyEmail(@PathVariable String email){
-        User user = userRepository.findByUsername(email)
+    @PostMapping("/verifyEmail/{username}")
+    public ResponseEntity<String> verifyEmail(@PathVariable String username){
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Please provide valid and existing email!"));
 
         int otp = otpGenerator();
 
         MailBody mailBody = MailBody.builder()
-                .to(email)
+                .to(username)
                 .text("This is the OTP for your Forgot Password request : " + otp)
                 .subject("OTP for Forgot Password request")
                 .build();
@@ -53,6 +60,36 @@ public class ForgotPasswordController {
         return ResponseEntity.ok("Email sent for verification!");
 
     }
+
+    @PostMapping("/verifyOtp/{otp}/{username}")
+    public ResponseEntity<String> verifyOtp(@PathVariable Integer otp, @PathVariable String username){
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Please provide valid and existing email!"));
+
+        ForgotPassword forgotPassword = forgotPasswordRepository.findByOtpAndUser(otp, user)
+                .orElseThrow(() -> new RuntimeException("Invalid OTP for email : " + username));
+
+        if(forgotPassword.getExpirationTime().before(Date.from(Instant.now()))){
+            forgotPasswordRepository.deleteById(forgotPassword.getFpid());
+            return new ResponseEntity<>("OTP has expired", HttpStatus.EXPECTATION_FAILED);
+        }
+
+        return ResponseEntity.ok("OTP verified");
+    }
+
+    @PostMapping("/changePassword/{username}")
+    public ResponseEntity<String> changePasswordHandler(@RequestBody ChangePassword changePassword,
+                                                        @PathVariable String username){
+        if(!Objects.equals(changePassword.password(), changePassword.repeatPassword())){
+            return new ResponseEntity<>("Please enter the password again!", HttpStatus.EXPECTATION_FAILED);
+        }
+
+        String encodedPassword = passwordEncoder.encode(changePassword.password());
+        userRepository.updatePassword(username, encodedPassword);
+
+        return ResponseEntity.ok("Password has been changed!");
+    }
+
 
     private Integer otpGenerator() {
         Random random = new Random();
