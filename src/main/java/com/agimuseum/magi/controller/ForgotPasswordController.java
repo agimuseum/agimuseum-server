@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 
 @RestController
@@ -48,14 +49,24 @@ public class ForgotPasswordController {
                 .subject("OTP for Forgot Password request")
                 .build();
 
+        // Delete existing forgot password
+        Optional<ForgotPassword> existingForgotPassword = forgotPasswordRepository.findByUser(user);
+        if (existingForgotPassword.isPresent()) {
+            // Delete the existing one
+            forgotPasswordRepository.deleteByUser(user);
+            // Flush to ensure the delete is processed
+            forgotPasswordRepository.flush();
+        }
+
+        // Create new forgot password
         ForgotPassword fp = ForgotPassword.builder()
                 .otp(otp)
                 .expirationTime(new Date(System.currentTimeMillis() + 70 * 1000))
                 .user(user)
                 .build();
+        forgotPasswordRepository.save(fp);
 
         emailService.sendSimpleMessage(mailBody);
-        forgotPasswordRepository.save(fp);
 
         return ResponseEntity.ok("Email sent for verification!");
 
@@ -70,7 +81,7 @@ public class ForgotPasswordController {
                 .orElseThrow(() -> new RuntimeException("Invalid OTP for email : " + username));
 
         if(forgotPassword.getExpirationTime().before(Date.from(Instant.now()))){
-            forgotPasswordRepository.deleteById(forgotPassword.getFpid());
+            forgotPasswordRepository.deleteById(forgotPassword.getId());
             return new ResponseEntity<>("OTP has expired", HttpStatus.EXPECTATION_FAILED);
         }
 
