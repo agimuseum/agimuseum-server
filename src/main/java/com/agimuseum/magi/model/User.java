@@ -40,6 +40,27 @@ public class User implements UserDetails {
     @Temporal(TemporalType.TIMESTAMP)
     private Date lastLogin;
 
+    @Column(name = "zip_code")
+    private String zipCode;
+
+    @Column(name = "is_visiting")
+    private boolean isVisiting;
+
+    @Column(name = "is_night_in_hotel")
+    private boolean isNightInHotel;
+
+    @Column(name = "hotel_name")
+    private String hotelName;
+
+    @Column(name = "number_of_nights")
+    private Integer numberOfNights;
+
+    @Column(name = "room_number")
+    private String roomNumber;
+
+    @Column(name = "number_of_people")
+    private Integer numberOfPeople;
+
     @Enumerated(value = EnumType.STRING)
     private Role role;
 
@@ -109,6 +130,62 @@ public class User implements UserDetails {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getZipCode() {
+        return zipCode;
+    }
+
+    public void setZipCode(String zipCode) {
+        this.zipCode = zipCode;
+    }
+
+    public boolean isVisiting() {
+        return isVisiting;
+    }
+
+    public void setVisiting(boolean visiting) {
+        isVisiting = visiting;
+    }
+
+    public boolean isNightInHotel() {
+        return isNightInHotel;
+    }
+
+    public void setNightInHotel(boolean nightInHotel) {
+        isNightInHotel = nightInHotel;
+    }
+
+    public String getHotelName() {
+        return hotelName;
+    }
+
+    public void setHotelName(String hotelName) {
+        this.hotelName = hotelName;
+    }
+
+    public Integer getNumberOfNights() {
+        return numberOfNights;
+    }
+
+    public void setNumberOfNights(Integer numberOfNights) {
+        this.numberOfNights = numberOfNights;
+    }
+
+    public String getRoomNumber() {
+        return roomNumber;
+    }
+
+    public void setRoomNumber(String roomNumber) {
+        this.roomNumber = roomNumber;
+    }
+
+    public Integer getNumberOfPeople() {
+        return numberOfPeople;
+    }
+
+    public void setNumberOfPeople(Integer numberOfPeople) {
+        this.numberOfPeople = numberOfPeople;
     }
 
     public Role getRole() {

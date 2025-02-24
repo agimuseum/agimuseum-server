@@ -47,6 +47,13 @@ public class AuthenticationService {
         user.setCreatedAt(new Date());
         user.setActive(true);
         user.setLastLogin(new Date());
+        user.setZipCode(request.getZipCode());
+        user.setVisiting(request.isVisiting());
+        user.setNightInHotel(request.isNightInHotel());
+        user.setHotelName(request.getHotelName());
+        user.setNumberOfNights(request.getNumberOfNights());
+        user.setRoomNumber(request.getRoomNumber());
+        user.setNumberOfPeople(request.getNumberOfPeople());
 
         user = repository.save(user);
 
