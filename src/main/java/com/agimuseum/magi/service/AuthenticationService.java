@@ -63,8 +63,12 @@ public class AuthenticationService {
             user.setNumberOfRooms(null);
         }
 
-        // Number of people is always required
-        user.setNumberOfPeople(request.getNumberOfPeople());
+        // Ensure numberOfPeople is set (default to 1 if not provided)
+        if (request.getNumberOfPeople() != null) {
+            user.setNumberOfPeople(request.getNumberOfPeople());
+        } else {
+            user.setNumberOfPeople(1); // Default to 1 person
+        }
 
         user = repository.save(user);
 

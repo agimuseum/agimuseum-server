@@ -71,8 +71,15 @@ public class UserService {
             user.setNumberOfRooms(null);
         }
 
-        // Number of people is always required
-        user.setNumberOfPeople(userDTO.getNumberOfPeople());
+        // Ensure numberOfPeople is always set
+        if (userDTO.getNumberOfPeople() != null) {
+            user.setNumberOfPeople(userDTO.getNumberOfPeople());
+        } else {
+            // If not provided in the DTO, keep the existing value or set a default
+            if (user.getNumberOfPeople() == null) {
+                user.setNumberOfPeople(1);
+            }
+        }
 
         // Don't update sensitive fields like password, role, etc.
     }

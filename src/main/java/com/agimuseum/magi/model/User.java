@@ -13,6 +13,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "user")
+@EntityListeners(UserEntityListener.class)
 public class User implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,11 +59,11 @@ public class User implements UserDetails {
     private Integer numberOfNights;
 
     @Column(name = "number_of_rooms")
-    @Min(value = 0, message = "Number of rooms cannot be negative")
-    @NotNull(message = "Number of rooms is required")
     private Integer numberOfRooms;
 
     @Column(name = "number_of_people")
+    @NotNull(message = "Number of people is required")
+    @Min(value = 1, message = "Number of people must be at least 1")
     private Integer numberOfPeople;
 
     @Enumerated(value = EnumType.STRING)
@@ -116,7 +117,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return active;
     }
 
     public void setUsername(String username) {
