@@ -22,7 +22,7 @@ public class UserDTO {
     private boolean isNightInHotel;
     private String hotelName;
     private Integer numberOfNights;
-    private String roomNumber;
+    private Integer numberOfRooms;
     private Integer numberOfPeople;
     private Role role;
     private Date createdAt;

@@ -52,7 +52,7 @@ public class AuthenticationService {
         user.setNightInHotel(request.isNightInHotel());
         user.setHotelName(request.getHotelName());
         user.setNumberOfNights(request.getNumberOfNights());
-        user.setRoomNumber(request.getRoomNumber());
+        user.setNumberOfRooms(request.getNumberOfRooms());
         user.setNumberOfPeople(request.getNumberOfPeople());
 
         user = repository.save(user);

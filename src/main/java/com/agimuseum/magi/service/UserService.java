@@ -60,7 +60,7 @@ public class UserService {
         user.setNightInHotel(userDTO.isNightInHotel());
         user.setHotelName(userDTO.getHotelName());
         user.setNumberOfNights(userDTO.getNumberOfNights());
-        user.setRoomNumber(userDTO.getRoomNumber());
+        user.setNumberOfRooms(userDTO.getNumberOfRooms());
         user.setNumberOfPeople(userDTO.getNumberOfPeople());
         // Don't update sensitive fields like password, role, etc.
     }
@@ -76,7 +76,7 @@ public class UserService {
                 .isNightInHotel(user.isNightInHotel())
                 .hotelName(user.getHotelName())
                 .numberOfNights(user.getNumberOfNights())
-                .roomNumber(user.getRoomNumber())
+                .numberOfRooms(user.getNumberOfRooms())
                 .numberOfPeople(user.getNumberOfPeople())
                 .role(user.getRole())
                 .createdAt(user.getCreatedAt())

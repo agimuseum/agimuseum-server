@@ -1,6 +1,8 @@
 package com.agimuseum.magi.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -55,8 +57,10 @@ public class User implements UserDetails {
     @Column(name = "number_of_nights")
     private Integer numberOfNights;
 
-    @Column(name = "room_number")
-    private String roomNumber;
+    @Column(name = "number_of_rooms")
+    @Min(value = 0, message = "Number of rooms cannot be negative")
+    @NotNull(message = "Number of rooms is required")
+    private Integer numberOfRooms;
 
     @Column(name = "number_of_people")
     private Integer numberOfPeople;
@@ -172,12 +176,12 @@ public class User implements UserDetails {
         this.numberOfNights = numberOfNights;
     }
 
-    public String getRoomNumber() {
-        return roomNumber;
+    public Integer getNumberOfRooms() {
+        return numberOfRooms;
     }
 
-    public void setRoomNumber(String roomNumber) {
-        this.roomNumber = roomNumber;
+    public void setNumberOfRooms(Integer numberOfRooms) {
+        this.numberOfRooms = numberOfRooms;
     }
 
     public Integer getNumberOfPeople() {
@@ -220,4 +224,3 @@ public class User implements UserDetails {
         this.lastLogin = lastLogin;
     }
 }
-

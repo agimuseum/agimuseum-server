@@ -33,7 +33,8 @@ public class RegisterRequest {
     @Min(value = 0, message = "Number of nights cannot be negative")
     private Integer numberOfNights;
 
-    private String roomNumber;
+    @Min(value = 0, message = "Number of rooms must be positive")
+    private Integer numberOfRooms;
 
     @Min(value = 1, message = "Number of people must be at least 1")
     private Integer numberOfPeople;
