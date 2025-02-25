@@ -50,9 +50,20 @@ public class AuthenticationService {
         user.setZipCode(request.getZipCode());
         user.setVisiting(request.isVisiting());
         user.setNightInHotel(request.isNightInHotel());
-        user.setHotelName(request.getHotelName());
-        user.setNumberOfNights(request.getNumberOfNights());
-        user.setNumberOfRooms(request.getNumberOfRooms());
+
+        // Set hotel-related fields only if staying in hotel
+        if (request.isNightInHotel()) {
+            user.setHotelName(request.getHotelName());
+            user.setNumberOfNights(request.getNumberOfNights());
+            user.setNumberOfRooms(request.getNumberOfRooms());
+        } else {
+            // Set to null when not staying in a hotel
+            user.setHotelName(null);
+            user.setNumberOfNights(null);
+            user.setNumberOfRooms(null);
+        }
+
+        // Number of people is always required
         user.setNumberOfPeople(request.getNumberOfPeople());
 
         user = repository.save(user);

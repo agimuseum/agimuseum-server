@@ -1,10 +1,12 @@
 package com.agimuseum.magi.dto;
 
 import com.agimuseum.magi.model.Role;
+import com.agimuseum.magi.validation.ConditionalHotelValidation;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
+@ConditionalHotelValidation
 public class RegisterRequest {
     @NotBlank(message = "First name is required")
     private String firstname;
@@ -30,10 +32,8 @@ public class RegisterRequest {
 
     private String hotelName;
 
-    @Min(value = 0, message = "Number of nights cannot be negative")
     private Integer numberOfNights;
 
-    @Min(value = 0, message = "Number of rooms must be positive")
     private Integer numberOfRooms;
 
     @Min(value = 1, message = "Number of people must be at least 1")

@@ -1,6 +1,7 @@
 package com.agimuseum.magi.dto;
 
 import com.agimuseum.magi.model.Role;
+import com.agimuseum.magi.validation.ConditionalHotelValidation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,6 +13,7 @@ import java.util.Date;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@ConditionalHotelValidation
 public class UserDTO {
     private Integer id;
     private String firstname;

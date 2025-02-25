@@ -58,10 +58,22 @@ public class UserService {
         user.setZipCode(userDTO.getZipCode());
         user.setVisiting(userDTO.isVisiting());
         user.setNightInHotel(userDTO.isNightInHotel());
-        user.setHotelName(userDTO.getHotelName());
-        user.setNumberOfNights(userDTO.getNumberOfNights());
-        user.setNumberOfRooms(userDTO.getNumberOfRooms());
+
+        // Handle hotel-related fields conditionally
+        if (userDTO.isNightInHotel()) {
+            user.setHotelName(userDTO.getHotelName());
+            user.setNumberOfNights(userDTO.getNumberOfNights());
+            user.setNumberOfRooms(userDTO.getNumberOfRooms());
+        } else {
+            // Clear hotel-related fields when not staying in hotel
+            user.setHotelName(null);
+            user.setNumberOfNights(null);
+            user.setNumberOfRooms(null);
+        }
+
+        // Number of people is always required
         user.setNumberOfPeople(userDTO.getNumberOfPeople());
+
         // Don't update sensitive fields like password, role, etc.
     }
 
