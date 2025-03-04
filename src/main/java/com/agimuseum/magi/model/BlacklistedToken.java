@@ -20,6 +20,6 @@ public class BlacklistedToken {
     @Column(nullable = false, unique = true)
     private String token;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Date expiryDate;
 }

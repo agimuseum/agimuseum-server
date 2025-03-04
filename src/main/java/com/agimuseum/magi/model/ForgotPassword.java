@@ -20,7 +20,7 @@ public class ForgotPassword {
     @Column(nullable = false)
     private Integer otp;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Date expirationTime;
 
     @OneToOne

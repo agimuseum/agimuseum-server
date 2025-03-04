@@ -4,8 +4,10 @@ import com.agimuseum.magi.filter.JwtAuthenticationFilter;
 import com.agimuseum.magi.service.UserDetailsServiceImp;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -17,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
     private final UserDetailsServiceImp userDetailsServiceImp;
 
@@ -32,7 +35,11 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(
-                        req->req.requestMatchers("/login/**", "/register/**", "/forgotPassword/**", "/api/auth/refresh", "/api/auth/logout")
+                        req -> req
+                                .requestMatchers("/login/**", "/register/**", "/forgotPassword/**", "/api/auth/refresh", "/api/auth/logout")
+                                .permitAll()
+                                // Allow GET requests to public endpoints
+                                .requestMatchers(HttpMethod.GET, "/api/locations/**")
                                 .permitAll()
                                 .anyRequest()
                                 .authenticated()
@@ -51,8 +58,5 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
-
     }
-
 }
-
