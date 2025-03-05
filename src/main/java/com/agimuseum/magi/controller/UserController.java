@@ -33,6 +33,13 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUser(id, userDTO));
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @userService.isCurrentUser(#id)")
+    public ResponseEntity<Void> deleteUser(@PathVariable Integer id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/profile/{username}")
     @PreAuthorize("hasRole('ADMIN') or #username == authentication.name")
     public ResponseEntity<UserDTO> getUserByUsername(@PathVariable String username) {

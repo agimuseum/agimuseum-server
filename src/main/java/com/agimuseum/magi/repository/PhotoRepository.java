@@ -13,6 +13,7 @@ public interface PhotoRepository extends JpaRepository<Photo, Integer> {
     List<Photo> findByStopId(Integer stopId);
     List<Photo> findByUserAndLocationId(User user, Integer locationId);
     List<Photo> findByUserAndStopId(User user, Integer stopId);
+    List<Photo> findByUser(User user);
     long countByUserAndLocationId(User user, Integer locationId);
     long countByUserAndStopId(User user, Integer stopId);
 }
