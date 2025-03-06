@@ -31,6 +31,7 @@ public class Stop {
 
     private Double latitude;
     private Double longitude;
+    @Column(name = "geo_fence_radius")
     private Integer geoFenceRadius;
 
     @OneToMany(mappedBy = "stop", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)

@@ -1,12 +1,6 @@
 package com.agimuseum.magi.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,5 +23,6 @@ public class LocationDetail {
     private String address;
     private Double latitude;
     private Double longitude;
+    @Column(name = "geo_fence_radius")
     private Integer geoFenceRadius;
 }
