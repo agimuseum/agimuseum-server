@@ -41,6 +41,9 @@ public class SecurityConfig {
                                 // Allow GET requests to public endpoints
                                 .requestMatchers(HttpMethod.GET, "/api/locations/**")
                                 .permitAll()
+                                // Allow GET requests to public photo endpoints
+                                .requestMatchers(HttpMethod.GET, "/api/photos/locations/**", "/api/photos/stops/**")
+                                .permitAll()
                                 .anyRequest()
                                 .authenticated()
                 ).userDetailsService(userDetailsServiceImp)

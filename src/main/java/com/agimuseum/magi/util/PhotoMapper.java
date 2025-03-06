@@ -10,7 +10,16 @@ import java.util.stream.Collectors;
 @Component
 public class PhotoMapper {
 
+    /**
+     * Convert a Photo entity to a PhotoDTO
+     * @param photo the Photo entity
+     * @return the PhotoDTO
+     */
     public PhotoDTO toDTO(Photo photo) {
+        if (photo == null) {
+            return null;
+        }
+
         return PhotoDTO.builder()
                 .id(photo.getId())
                 .fileName(photo.getFileName())
@@ -20,12 +29,22 @@ public class PhotoMapper {
                 .locationName(photo.getLocationName())
                 .stopId(photo.getStopId())
                 .stopName(photo.getStopName())
-                .uploaderName(photo.getUser().getFirstname() + " " + photo.getUser().getLastname())
+                .uploaderName(photo.getUser() != null ?
+                        photo.getUser().getFirstname() + " " + photo.getUser().getLastname() : "Unknown")
                 .uploadedAt(photo.getUploadedAt())
                 .build();
     }
 
+    /**
+     * Convert a list of Photo entities to a list of PhotoDTOs
+     * @param photos the list of Photo entities
+     * @return the list of PhotoDTOs
+     */
     public List<PhotoDTO> toDTOList(List<Photo> photos) {
+        if (photos == null) {
+            return List.of();
+        }
+
         return photos.stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());

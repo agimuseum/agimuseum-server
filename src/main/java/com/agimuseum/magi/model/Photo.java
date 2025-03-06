@@ -2,6 +2,7 @@ package com.agimuseum.magi.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.util.Date;
 
@@ -17,52 +18,60 @@ public class Photo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
+    @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @Column(nullable = false)
+    @Column(name = "content_type", nullable = false)
     private String contentType;
+
+    @Column(name = "contentType", nullable = false)
+    private String contentTypeField;
 
     @Column(nullable = false)
     private String url;
 
-    @Column(nullable = false)
+    @Column(name = "photo_url", nullable = false)
+    private String photoUrl;
+
+    @Column(name = "firebase_path", nullable = false)
     private String firebasePath;
+
+    @Column(name = "reference_id", nullable = false)
+    private String referenceId;
 
     @Column(name = "location_id", nullable = false)
     private Integer locationId;
 
-    @Column(nullable = false)
+    @Column(name = "location_name", nullable = false)
     private String locationName;
 
     @Column(name = "stop_id")
     private Integer stopId;
 
-    @Column
+    @Column(name = "stop_name")
     private String stopName;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id", insertable = false, updatable = false)
     private Location location;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stop_id", insertable = false, updatable = false)
     private Stop stop;
 
-    @Column(nullable = false)
+    @Column(name = "uploaded_at", nullable = false)
+    @CreationTimestamp
     @Temporal(TemporalType.TIMESTAMP)
     private Date uploadedAt;
 
     @PrePersist
     protected void onCreate() {
-        uploadedAt = new Date();
-    }
-
-    public String getPhotoUrl() {
-        return url;
+        if (uploadedAt == null) {
+            uploadedAt = new Date();
+        }
     }
 }

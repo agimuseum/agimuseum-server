@@ -20,8 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.Objects;
 
 @Service
 public class PhotoService {
@@ -48,6 +50,10 @@ public class PhotoService {
     }
 
     public Photo uploadLocationPhoto(Integer locationId, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File cannot be null or empty");
+        }
+
         // Get current user
         User currentUser = getCurrentUser();
 
@@ -56,14 +62,15 @@ public class PhotoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + locationId));
 
         // Check if user has already uploaded 3 photos for this location
-        List<Photo> existingPhotos = photoRepository.findByUserAndLocationId(currentUser, locationId);
-        if (existingPhotos.size() >= 3) {
+        long photoCount = photoRepository.countByUserAndLocationId(currentUser, locationId);
+        if (photoCount >= 3) {
             throw new IllegalStateException("Maximum number of photos (3) already uploaded for this location");
         }
 
-        // Upload photo to Firebase
+        // Generate safe filename
+        String originalFilename = Objects.requireNonNull(file.getOriginalFilename(), "Filename cannot be null");
         String fileName = generateFileName(file);
-        String contentType = file.getContentType();
+        String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
         String firebasePath = "locations/" + locationId + "/" + fileName;
 
         BlobId blobId = BlobId.of(storageBucket, firebasePath);
@@ -74,21 +81,29 @@ public class PhotoService {
         Blob blob = storage.create(blobInfo, file.getBytes());
         String url = "https://storage.googleapis.com/" + storageBucket + "/" + firebasePath;
 
-        // Create and save photo entity
+        // Create and save photo entity with explicit fileName set
         Photo photo = Photo.builder()
                 .fileName(fileName)
                 .contentType(contentType)
+                .contentTypeField(contentType)
                 .url(url)
+                .photoUrl(url)
                 .firebasePath(firebasePath)
+                .referenceId(UUID.randomUUID().toString())
                 .locationId(locationId)
                 .locationName(location.getName())
                 .user(currentUser)
+                .uploadedAt(new Date())
                 .build();
 
         return photoRepository.save(photo);
     }
 
     public Photo uploadStopPhoto(Integer stopId, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File cannot be null or empty");
+        }
+
         // Get current user
         User currentUser = getCurrentUser();
 
@@ -97,14 +112,15 @@ public class PhotoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Stop not found with id: " + stopId));
 
         // Check if user has already uploaded 3 photos for this stop
-        List<Photo> existingPhotos = photoRepository.findByUserAndStopId(currentUser, stopId);
-        if (existingPhotos.size() >= 3) {
+        long photoCount = photoRepository.countByUserAndStopId(currentUser, stopId);
+        if (photoCount >= 3) {
             throw new IllegalStateException("Maximum number of photos (3) already uploaded for this stop");
         }
 
-        // Upload photo to Firebase
+        // Generate safe filename
+        String originalFilename = Objects.requireNonNull(file.getOriginalFilename(), "Filename cannot be null");
         String fileName = generateFileName(file);
-        String contentType = file.getContentType();
+        String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
         String firebasePath = "stops/" + stopId + "/" + fileName;
 
         BlobId blobId = BlobId.of(storageBucket, firebasePath);
@@ -119,13 +135,17 @@ public class PhotoService {
         Photo photo = Photo.builder()
                 .fileName(fileName)
                 .contentType(contentType)
+                .contentTypeField(contentType)
                 .url(url)
+                .photoUrl(url)
                 .firebasePath(firebasePath)
-                .stopId(stopId)
-                .stopName(stop.getName())
+                .referenceId(UUID.randomUUID().toString())
                 .locationId(stop.getLocation().getId())
                 .locationName(stop.getLocation().getName())
+                .stopId(stopId)
+                .stopName(stop.getName())
                 .user(currentUser)
+                .uploadedAt(new Date())
                 .build();
 
         return photoRepository.save(photo);
@@ -166,6 +186,28 @@ public class PhotoService {
         return photoRepository.findByUserAndStopId(currentUser, stopId);
     }
 
+    public long getLocationPhotoCount(User user, Integer locationId) {
+        return photoRepository.countByUserAndLocationId(user, locationId);
+    }
+
+    public long getStopPhotoCount(User user, Integer stopId) {
+        return photoRepository.countByUserAndStopId(user, stopId);
+    }
+
+    public List<Photo> getAllLocationPhotos(Integer locationId) {
+        // Verify location exists
+        locationRepository.findById(locationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + locationId));
+        return photoRepository.findByLocationId(locationId);
+    }
+
+    public List<Photo> getAllStopPhotos(Integer stopId) {
+        // Verify stop exists
+        stopRepository.findById(stopId)
+                .orElseThrow(() -> new ResourceNotFoundException("Stop not found with id: " + stopId));
+        return photoRepository.findByStopId(stopId);
+    }
+
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return userRepository.findByUsername(authentication.getName())
@@ -174,7 +216,10 @@ public class PhotoService {
 
     private String generateFileName(MultipartFile file) {
         String originalFileName = file.getOriginalFilename();
-        String extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+        String extension = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+        }
         return UUID.randomUUID().toString() + extension;
     }
 }
