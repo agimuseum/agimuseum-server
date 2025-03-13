@@ -2,6 +2,8 @@ package com.agimuseum.magi.controller;
 
 import com.agimuseum.magi.dto.AccountDeletionRequest;
 import com.agimuseum.magi.dto.UserDTO;
+import com.agimuseum.magi.model.User;
+import com.agimuseum.magi.repository.UserRepository;
 import com.agimuseum.magi.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,49 +17,65 @@ import org.springframework.web.bind.annotation.*;
 public class AccountController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public AccountController(UserService userService, PasswordEncoder passwordEncoder) {
+    public AccountController(UserService userService, UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userService = userService;
+        this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/delete")
-    public ResponseEntity<Void> deleteAccount(@RequestBody AccountDeletionRequest request,
-                                              @RequestParam(value = "permanent", defaultValue = "false") boolean permanent) {
+    public ResponseEntity<?> deleteAccount(@RequestBody AccountDeletionRequest request,
+                                           @RequestParam(value = "permanent", defaultValue = "false") boolean permanent) {
         try {
             // Get the current authenticated user
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated() ||
-                    "anonymousUser".equals(authentication.getPrincipal())) {
-                return ResponseEntity.status(401).build(); // Unauthorized
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body("User not authenticated");
             }
 
             String username = authentication.getName();
 
-            // Get user from username
-            UserDTO currentUser = userService.getUserByUsername(username);
-            if (currentUser == null) {
-                return ResponseEntity.status(404).build(); // Not found
+            // Print debug information
+            System.out.println("Processing account deletion for: " + username);
+            System.out.println("Provided password length: " +
+                    (request.getConfirmPassword() != null ? request.getConfirmPassword().length() : "null"));
+
+            // Get user from database
+            User currentUser = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new IllegalStateException("Current user not found"));
+
+            // Explicit password validation with detailed logging
+            boolean passwordMatches = false;
+            try {
+                passwordMatches = passwordEncoder.matches(request.getConfirmPassword(), currentUser.getPassword());
+                System.out.println("Password validation result: " + passwordMatches);
+            } catch (Exception e) {
+                System.err.println("Error during password validation: " + e.getMessage());
+                return ResponseEntity.badRequest().body("Password validation error");
             }
 
-            Integer userId = currentUser.getId();
+            // Explicit check and early return if password doesn't match
+            if (!passwordMatches) {
+                System.out.println("Password validation failed, returning 400");
+                return ResponseEntity.badRequest().body("Password confirmation failed");
+            }
 
-            // Choose deletion method based on parameter
+            // If we get here, password is valid, proceed with deletion
+            System.out.println("Password validated, proceeding with deletion");
+
             if (permanent) {
-                // Hard delete - completely remove the account
-                userService.deleteUser(userId);
+                userService.deleteUser(currentUser.getId());
             } else {
-                // Soft delete - deactivate the account but keep record
-                userService.softDeleteUser(userId);
+                userService.softDeleteUser(currentUser.getId());
             }
 
-            // Return 204 No Content status
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
-            // Log the exception
             e.printStackTrace();
-            return ResponseEntity.status(500).build(); // Internal server error
+            return ResponseEntity.status(500).body("Internal server error: " + e.getMessage());
         }
     }
 
@@ -73,6 +91,4 @@ public class AccountController {
         }
         return ResponseEntity.noContent().build();
     }
-
-    // Additional account management endpoints can be added here
 }

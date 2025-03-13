@@ -1,5 +1,6 @@
 package com.agimuseum.magi.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -8,7 +9,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AccountDeletionRequest {
+    @NotBlank(message = "Password confirmation is required")
     private String confirmPassword;
+
     private String reason;
 
     // This class can be expanded with additional fields as needed

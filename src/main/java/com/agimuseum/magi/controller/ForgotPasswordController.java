@@ -91,14 +91,26 @@ public class ForgotPasswordController {
     @PostMapping("/changePassword/{username}")
     public ResponseEntity<String> changePasswordHandler(@RequestBody ChangePassword changePassword,
                                                         @PathVariable String username){
+        // Validate that passwords match
         if(!Objects.equals(changePassword.password(), changePassword.repeatPassword())){
-            return new ResponseEntity<>("Please enter the password again!", HttpStatus.EXPECTATION_FAILED);
+            return new ResponseEntity<>("Passwords do not match. Please enter the same password in both fields.", HttpStatus.BAD_REQUEST);
         }
 
+        // Validate password is not empty
+        if(changePassword.password() == null || changePassword.password().trim().isEmpty()) {
+            return new ResponseEntity<>("Password cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+
+        // Now proceed with password change
         String encodedPassword = passwordEncoder.encode(changePassword.password());
         userRepository.updatePassword(username, encodedPassword);
 
-        return ResponseEntity.ok("Password has been changed!");
+        // Clean up any forgot password records for this user
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        forgotPasswordRepository.deleteByUser(user);
+
+        return ResponseEntity.ok("Password has been changed successfully!");
     }
 
 
@@ -106,10 +118,4 @@ public class ForgotPasswordController {
         Random random = new Random();
         return random.nextInt(100_000, 999_999);
     }
-
-    @GetMapping("/demo")
-    public ResponseEntity<String> demo(){
-        return ResponseEntity.ok("yo yo yo");
-    }
-
 }
