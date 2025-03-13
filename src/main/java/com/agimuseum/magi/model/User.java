@@ -62,6 +62,12 @@ public class User implements UserDetails {
     @Column(name = "number_of_rooms")
     private Integer numberOfRooms;
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LocationVisit> locationVisits = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<StopVisit> stopVisits = new ArrayList<>();
+
     @Column(name = "number_of_people")
     @NotNull(message = "Number of people is required")
     @Min(value = 1, message = "Number of people must be at least 1")
@@ -187,6 +193,22 @@ public class User implements UserDetails {
 
     public void setNumberOfRooms(Integer numberOfRooms) {
         this.numberOfRooms = numberOfRooms;
+    }
+
+    public List<LocationVisit> getLocationVisits() {
+        return locationVisits;
+    }
+
+    public void setLocationVisits(List<LocationVisit> locationVisits) {
+        this.locationVisits = locationVisits;
+    }
+
+    public List<StopVisit> getStopVisits() {
+        return stopVisits;
+    }
+
+    public void setStopVisits(List<StopVisit> stopVisits) {
+        this.stopVisits = stopVisits;
     }
 
     public Integer getNumberOfPeople() {

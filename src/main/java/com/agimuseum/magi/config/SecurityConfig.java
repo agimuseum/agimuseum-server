@@ -36,15 +36,11 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(
                         req -> req
-                                .requestMatchers("/login/**", "/register/**", "/forgotPassword/**", "/api/auth/refresh", "/api/auth/logout")
+                                .requestMatchers(HttpMethod.GET, "/api/visits/rewards/progress")
                                 .permitAll()
-                                // Allow GET requests to public endpoints
-                                .requestMatchers(HttpMethod.GET, "/api/locations/**")
-                                .permitAll()
-                                // Allow GET requests to public photo endpoints
-                                .requestMatchers(HttpMethod.GET, "/api/photos/locations/**", "/api/photos/stops/**")
-                                .permitAll()
-                                .anyRequest()
+                                .requestMatchers(HttpMethod.GET, "/api/visits/summary")
+                                .authenticated()
+                                .requestMatchers("/api/visits/**")
                                 .authenticated()
                 ).userDetailsService(userDetailsServiceImp)
                 .sessionManagement(session->session
