@@ -2,7 +2,6 @@ package com.agimuseum.magi.filter;
 
 import com.agimuseum.magi.service.JwtService;
 import com.agimuseum.magi.service.TokenService;
-import com.agimuseum.magi.service.UserDetailsServiceImp;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,15 +15,29 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.util.AntPathMatcher;
 
 import java.io.IOException;
-
+import java.util.Arrays;
+import java.util.List;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final TokenService tokenService;
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
+
+    // List of paths that should be excluded from JWT authentication
+    private final List<String> excludedPaths = Arrays.asList(
+            "/register",
+            "/login",
+            "/forgotPassword/**",
+            "/api/debug/**",
+            "/api/visits/rewards/progress",
+            "/swagger-ui/**",
+            "/v3/api-docs/**"
+    );
 
     @Autowired
     public JwtAuthenticationFilter(TokenService tokenService,
@@ -33,6 +46,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.tokenService = tokenService;
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+
+        // Skip JWT filter for OPTIONS requests (CORS preflight)
+        if (request.getMethod().equals("OPTIONS")) {
+            return true;
+        }
+
+        // Skip JWT filter for excluded paths
+        return excludedPaths.stream()
+                .anyMatch(p -> pathMatcher.match(p, path));
     }
 
     @Override

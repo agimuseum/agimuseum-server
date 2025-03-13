@@ -6,8 +6,11 @@ import com.agimuseum.magi.dto.TokenResponse;
 import com.agimuseum.magi.exception.UserAlreadyExistsException;
 import com.agimuseum.magi.model.User;
 import com.agimuseum.magi.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.util.Date;
 
 @Service
+@Slf4j
 public class AuthenticationService {
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
@@ -25,7 +29,8 @@ public class AuthenticationService {
     public AuthenticationService(UserRepository repository,
                                  PasswordEncoder passwordEncoder,
                                  TokenService tokenService,
-                                 AuthenticationManager authenticationManager, JwtService jwtService) {
+                                 AuthenticationManager authenticationManager,
+                                 JwtService jwtService) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -34,7 +39,10 @@ public class AuthenticationService {
     }
 
     public TokenResponse register(RegisterRequest request) {
+        log.info("Processing registration for username: {}", request.getUsername());
+
         if(repository.findByUsername(request.getUsername()).isPresent()) {
+            log.warn("Registration failed: Email already registered: {}", request.getUsername());
             throw new UserAlreadyExistsException("Email already registered");
         }
 
@@ -70,28 +78,51 @@ public class AuthenticationService {
             user.setNumberOfPeople(1); // Default to 1 person
         }
 
-        user = repository.save(user);
+        try {
+            user = repository.save(user);
+            log.info("User registered successfully: {}", user.getUsername());
 
-        // Generate both access and refresh tokens
-        return tokenService.createTokenPair(user);
+            // Generate both access and refresh tokens
+            TokenResponse tokenResponse = tokenService.createTokenPair(user);
+            log.debug("Tokens generated for new user: {}", user.getUsername());
+            return tokenResponse;
+        } catch (Exception e) {
+            log.error("Error during user registration for {}: {}", request.getUsername(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     public TokenResponse authenticate(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                )
-        );
+        log.info("Authentication attempt for username: {}", request.getUsername());
 
-        User user = repository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername(),
+                            request.getPassword()
+                    )
+            );
 
-        // Update last login time
-        user.setLastLogin(new Date());
-        repository.save(user);
+            log.debug("Authentication successful for user: {}", authentication.getName());
 
-        // Generate both access and refresh tokens
-        return tokenService.createTokenPair(user);
+            User user = repository.findByUsername(request.getUsername())
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            // Update last login time
+            user.setLastLogin(new Date());
+            repository.save(user);
+            log.debug("Updated last login time for user: {}", user.getUsername());
+
+            // Generate both access and refresh tokens
+            TokenResponse tokenResponse = tokenService.createTokenPair(user);
+            log.info("Login successful for user: {}", user.getUsername());
+            return tokenResponse;
+        } catch (BadCredentialsException e) {
+            log.warn("Authentication failed for username: {}: {}", request.getUsername(), e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error during authentication for {}: {}", request.getUsername(), e.getMessage(), e);
+            throw e;
+        }
     }
 }
