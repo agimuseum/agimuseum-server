@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Default rule - require authentication
+    match /{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if false; // Block direct writes, use server-side upload
+    }
+
+    // Public reading of location photos
+    match /locations/{locationId}/{photoName} {
+      allow read: if true; // Anyone can read location photos
+    }
+
+    // Public reading of stop photos
+    match /stops/{stopId}/{photoName} {
+      allow read: if true; // Anyone can read stop photos
+    }
+
+    // Allow authenticated users to read their own photos
+    match /users/{userId}/{photoName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Allow test path for connectivity checking
+    match /tests/{testFile} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

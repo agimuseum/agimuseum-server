@@ -5,6 +5,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,7 +13,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
-import javax.annotation.PostConstruct;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,9 +46,22 @@ public class FirebaseConfig {
                     serviceAccount = new FileInputStream(firebaseConfigPath);
                 }
 
+                // Create credentials with explicit scopes
+                GoogleCredentials credentials = GoogleCredentials.fromStream(serviceAccount)
+                        .createScoped(java.util.Arrays.asList(
+                                "https://www.googleapis.com/auth/cloud-platform",
+                                "https://www.googleapis.com/auth/firebase.database",
+                                "https://www.googleapis.com/auth/firebase.messaging",
+                                "https://www.googleapis.com/auth/firebase.storage",
+                                "https://www.googleapis.com/auth/datastore"
+                        ));
+
+                // Create options with explicit project ID
                 FirebaseOptions options = FirebaseOptions.builder()
-                        .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                        .setCredentials(credentials)
                         .setStorageBucket(storageBucket)
+                        .setProjectId("agimuseum") // Add explicit project ID
+                        .setDatabaseUrl("https://agimuseum-default-rtdb.firebaseio.com")
                         .build();
 
                 FirebaseApp.initializeApp(options);
@@ -56,7 +69,7 @@ public class FirebaseConfig {
             }
         } catch (IOException e) {
             log.error("Error initializing Firebase application", e);
-            throw new RuntimeException("Firebase initialization failed", e);
+            throw new RuntimeException("Firebase initialization failed: " + e.getMessage(), e);
         }
     }
 
@@ -78,8 +91,17 @@ public class FirebaseConfig {
                 serviceAccount = new FileInputStream(firebaseConfigPath);
             }
 
+            // Create credentials with explicit scopes
+            GoogleCredentials credentials = GoogleCredentials.fromStream(serviceAccount)
+                    .createScoped(java.util.Arrays.asList(
+                            "https://www.googleapis.com/auth/cloud-platform",
+                            "https://www.googleapis.com/auth/devstorage.full_control",
+                            "https://www.googleapis.com/auth/devstorage.read_write"
+                    ));
+
             Storage storage = StorageOptions.newBuilder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .setCredentials(credentials)
+                    .setProjectId("agimuseum") // Add explicit project ID
                     .build()
                     .getService();
 
@@ -87,7 +109,7 @@ public class FirebaseConfig {
             return storage;
         } catch (IOException e) {
             log.error("Error creating Storage bean", e);
-            throw new RuntimeException("Failed to create Storage bean", e);
+            throw new RuntimeException("Failed to create Storage bean: " + e.getMessage(), e);
         }
     }
 }

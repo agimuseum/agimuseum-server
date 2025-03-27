@@ -13,6 +13,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,10 +23,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.Objects;
 
 @Service
+@Slf4j
 public class PhotoService {
 
     private final Storage storage;
@@ -50,20 +53,29 @@ public class PhotoService {
     }
 
     public Photo uploadLocationPhoto(Integer locationId, MultipartFile file) throws IOException {
+        log.debug("Starting upload of location photo for locationId: {}", locationId);
+
         if (file == null || file.isEmpty()) {
+            log.error("File is null or empty");
             throw new IllegalArgumentException("File cannot be null or empty");
         }
 
         // Get current user
         User currentUser = getCurrentUser();
+        log.debug("Current user: {}", currentUser.getUsername());
 
         // Get location
         Location location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + locationId));
+                .orElseThrow(() -> {
+                    log.error("Location not found with id: {}", locationId);
+                    return new ResourceNotFoundException("Location not found with id: " + locationId);
+                });
+        log.debug("Found location: {}", location.getName());
 
         // Check if user has already uploaded 3 photos for this location
         long photoCount = photoRepository.countByUserAndLocationId(currentUser, locationId);
         if (photoCount >= 3) {
+            log.error("User has already uploaded maximum number of photos for this location");
             throw new IllegalStateException("Maximum number of photos (3) already uploaded for this location");
         }
 
@@ -73,47 +85,86 @@ public class PhotoService {
         String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
         String firebasePath = "locations/" + locationId + "/" + fileName;
 
-        BlobId blobId = BlobId.of(storageBucket, firebasePath);
-        BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
-                .setContentType(contentType)
-                .build();
+        log.debug("Uploading file: {} with content type: {} to path: {}", fileName, contentType, firebasePath);
 
-        Blob blob = storage.create(blobInfo, file.getBytes());
-        String url = "https://storage.googleapis.com/" + storageBucket + "/" + firebasePath;
+        try {
+            // Add metadata to help with debugging
+            Map<String, String> metadata = Map.of(
+                    "uploadedBy", currentUser.getUsername(),
+                    "originalFilename", originalFilename,
+                    "uploadTimestamp", String.valueOf(System.currentTimeMillis())
+            );
 
-        // Create and save photo entity with explicit fileName set
-        Photo photo = Photo.builder()
-                .fileName(fileName)
-                .contentType(contentType)
-                .contentTypeField(contentType)
-                .url(url)
-                .photoUrl(url)
-                .firebasePath(firebasePath)
-                .referenceId(UUID.randomUUID().toString())
-                .locationId(locationId)
-                .locationName(location.getName())
-                .user(currentUser)
-                .uploadedAt(new Date())
-                .build();
+            BlobId blobId = BlobId.of(storageBucket, firebasePath);
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                    .setContentType(contentType)
+                    .setMetadata(metadata)
+                    .build();
 
-        return photoRepository.save(photo);
+            // Log the upload attempt details
+            log.debug("Uploading to bucket: {}, path: {}", storageBucket, firebasePath);
+
+            // Try with Storage.BlobWriteOption to set predefined ACL
+            Blob blob = storage.create(blobInfo, file.getBytes(),
+                    Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
+
+            if (blob == null) {
+                log.error("Failed to create blob in Firebase Storage");
+                throw new IOException("Failed to upload file to Firebase Storage - returned null blob");
+            }
+
+            String url = "https://storage.googleapis.com/" + storageBucket + "/" + firebasePath;
+            log.debug("File uploaded successfully, URL: {}", url);
+
+            // Create and save photo entity with explicit fileName set
+            Photo photo = Photo.builder()
+                    .fileName(fileName)
+                    .contentType(contentType)
+                    .contentTypeField(contentType)
+                    .url(url)
+                    .photoUrl(url)
+                    .firebasePath(firebasePath)
+                    .referenceId(UUID.randomUUID().toString())
+                    .locationId(locationId)
+                    .locationName(location.getName())
+                    .user(currentUser)
+                    .uploadedAt(new Date())
+                    .build();
+
+            Photo savedPhoto = photoRepository.save(photo);
+            log.debug("Photo entity saved successfully with ID: {}", savedPhoto.getId());
+
+            return savedPhoto;
+        } catch (Exception e) {
+            log.error("Error uploading photo to Firebase Storage", e);
+            throw new IOException("Failed to upload photo: " + e.getMessage(), e);
+        }
     }
 
     public Photo uploadStopPhoto(Integer stopId, MultipartFile file) throws IOException {
+        log.debug("Starting upload of stop photo for stopId: {}", stopId);
+
         if (file == null || file.isEmpty()) {
+            log.error("File is null or empty");
             throw new IllegalArgumentException("File cannot be null or empty");
         }
 
         // Get current user
         User currentUser = getCurrentUser();
+        log.debug("Current user: {}", currentUser.getUsername());
 
         // Get stop
         Stop stop = stopRepository.findById(stopId)
-                .orElseThrow(() -> new ResourceNotFoundException("Stop not found with id: " + stopId));
+                .orElseThrow(() -> {
+                    log.error("Stop not found with id: {}", stopId);
+                    return new ResourceNotFoundException("Stop not found with id: " + stopId);
+                });
+        log.debug("Found stop: {}", stop.getName());
 
         // Check if user has already uploaded 3 photos for this stop
         long photoCount = photoRepository.countByUserAndStopId(currentUser, stopId);
         if (photoCount >= 3) {
+            log.error("User has already uploaded maximum number of photos for this stop");
             throw new IllegalStateException("Maximum number of photos (3) already uploaded for this stop");
         }
 
@@ -123,89 +174,106 @@ public class PhotoService {
         String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
         String firebasePath = "stops/" + stopId + "/" + fileName;
 
-        BlobId blobId = BlobId.of(storageBucket, firebasePath);
-        BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
-                .setContentType(contentType)
-                .build();
+        log.debug("Uploading file: {} with content type: {} to path: {}", fileName, contentType, firebasePath);
 
-        Blob blob = storage.create(blobInfo, file.getBytes());
-        String url = "https://storage.googleapis.com/" + storageBucket + "/" + firebasePath;
+        try {
+            // Add metadata to help with debugging
+            Map<String, String> metadata = Map.of(
+                    "uploadedBy", currentUser.getUsername(),
+                    "originalFilename", originalFilename,
+                    "uploadTimestamp", String.valueOf(System.currentTimeMillis())
+            );
 
-        // Create and save photo entity
-        Photo photo = Photo.builder()
-                .fileName(fileName)
-                .contentType(contentType)
-                .contentTypeField(contentType)
-                .url(url)
-                .photoUrl(url)
-                .firebasePath(firebasePath)
-                .referenceId(UUID.randomUUID().toString())
-                .locationId(stop.getLocation().getId())
-                .locationName(stop.getLocation().getName())
-                .stopId(stopId)
-                .stopName(stop.getName())
-                .user(currentUser)
-                .uploadedAt(new Date())
-                .build();
+            BlobId blobId = BlobId.of(storageBucket, firebasePath);
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                    .setContentType(contentType)
+                    .setMetadata(metadata)
+                    .build();
 
-        return photoRepository.save(photo);
-    }
+            // Try with Storage.BlobWriteOption to set predefined ACL
+            Blob blob = storage.create(blobInfo, file.getBytes(),
+                    Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
 
-    public void deletePhoto(Integer photoId) {
-        // Get current user
-        User currentUser = getCurrentUser();
+            if (blob == null) {
+                log.error("Failed to create blob in Firebase Storage");
+                throw new IOException("Failed to upload file to Firebase Storage - returned null blob");
+            }
 
-        // Get photo
-        Photo photo = photoRepository.findById(photoId)
-                .orElseThrow(() -> new ResourceNotFoundException("Photo not found with id: " + photoId));
+            String url = "https://storage.googleapis.com/" + storageBucket + "/" + firebasePath;
+            log.debug("File uploaded successfully, URL: {}", url);
 
-        // Check if the photo belongs to the current user
-        if (!photo.getUser().getId().equals(currentUser.getId())) {
-            throw new IllegalStateException("You don't have permission to delete this photo");
+            // Create and save photo entity
+            Photo photo = Photo.builder()
+                    .fileName(fileName)
+                    .contentType(contentType)
+                    .contentTypeField(contentType)
+                    .url(url)
+                    .photoUrl(url)
+                    .firebasePath(firebasePath)
+                    .referenceId(UUID.randomUUID().toString())
+                    .locationId(stop.getLocation().getId())
+                    .locationName(stop.getLocation().getName())
+                    .stopId(stopId)
+                    .stopName(stop.getName())
+                    .user(currentUser)
+                    .uploadedAt(new Date())
+                    .build();
+
+            Photo savedPhoto = photoRepository.save(photo);
+            log.debug("Photo entity saved successfully with ID: {}", savedPhoto.getId());
+
+            return savedPhoto;
+        } catch (Exception e) {
+            log.error("Error uploading photo to Firebase Storage", e);
+            throw new IOException("Failed to upload photo: " + e.getMessage(), e);
         }
-
-        // Delete from Firebase
-        BlobId blobId = BlobId.of(storageBucket, photo.getFirebasePath());
-        boolean deleted = storage.delete(blobId);
-
-        if (deleted) {
-            // Delete from database
-            photoRepository.delete(photo);
-        } else {
-            throw new IllegalStateException("Failed to delete photo from storage");
-        }
     }
 
-    public List<Photo> getUserPhotosForLocation(Integer locationId) {
-        User currentUser = getCurrentUser();
-        return photoRepository.findByUserAndLocationId(currentUser, locationId);
-    }
-
-    public List<Photo> getUserPhotosForStop(Integer stopId) {
-        User currentUser = getCurrentUser();
-        return photoRepository.findByUserAndStopId(currentUser, stopId);
-    }
-
-    public long getLocationPhotoCount(User user, Integer locationId) {
-        return photoRepository.countByUserAndLocationId(user, locationId);
-    }
-
-    public long getStopPhotoCount(User user, Integer stopId) {
-        return photoRepository.countByUserAndStopId(user, stopId);
-    }
-
-    public List<Photo> getAllLocationPhotos(Integer locationId) {
-        // Verify location exists
-        locationRepository.findById(locationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + locationId));
+    /**
+     * Get all photos for a location
+     */
+    public List<Photo> getLocationPhotos(Integer locationId) {
         return photoRepository.findByLocationId(locationId);
     }
 
-    public List<Photo> getAllStopPhotos(Integer stopId) {
-        // Verify stop exists
-        stopRepository.findById(stopId)
-                .orElseThrow(() -> new ResourceNotFoundException("Stop not found with id: " + stopId));
+    /**
+     * Get all photos for a stop
+     */
+    public List<Photo> getStopPhotos(Integer stopId) {
         return photoRepository.findByStopId(stopId);
+    }
+
+    /**
+     * Get all photos uploaded by the current user
+     */
+    public List<Photo> getUserPhotos() {
+        User currentUser = getCurrentUser();
+        return photoRepository.findByUser(currentUser);
+    }
+
+    /**
+     * Delete a photo by ID
+     */
+    public void deletePhoto(Integer photoId) throws IOException {
+        Photo photo = photoRepository.findById(photoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Photo not found with id: " + photoId));
+
+        // Check if current user is the owner or has admin role
+        User currentUser = getCurrentUser();
+        if (!photo.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().toString().equals("ADMIN")) {
+            throw new IllegalStateException("You don't have permission to delete this photo");
+        }
+
+        // Delete from Firebase Storage
+        BlobId blobId = BlobId.of(storageBucket, photo.getFirebasePath());
+        boolean deleted = storage.delete(blobId);
+
+        if (!deleted) {
+            log.warn("Could not delete file from Firebase Storage at path: {}", photo.getFirebasePath());
+        }
+
+        // Delete from database
+        photoRepository.delete(photo);
     }
 
     private User getCurrentUser() {
