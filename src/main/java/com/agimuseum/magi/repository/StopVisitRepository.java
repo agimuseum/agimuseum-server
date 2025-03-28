@@ -17,10 +17,16 @@ public interface StopVisitRepository extends JpaRepository<StopVisit, Integer> {
 
     Optional<StopVisit> findByUserAndStop(User user, Stop stop);
 
+    @Query("SELECT sv FROM StopVisit sv WHERE sv.user.id = ?1 AND sv.stop.id = ?2")
+    Optional<StopVisit> findByUserIdAndStopId(Integer userId, Integer stopId);
+
     boolean existsByUserAndStop(User user, Stop stop);
 
     @Query("SELECT COUNT(sv) FROM StopVisit sv WHERE sv.user = ?1")
     long countVisitedStopsByUser(User user);
+
+    @Query("SELECT COUNT(sv) FROM StopVisit sv WHERE sv.user = ?1 AND sv.hasPhotoProof = true")
+    long countVisitedStopsWithPhotoByUser(User user);
 
     @Query("SELECT s.id FROM Stop s WHERE s.id NOT IN (SELECT sv.stop.id FROM StopVisit sv WHERE sv.user = ?1)")
     List<Integer> findUnvisitedStopIdsByUser(User user);
@@ -32,4 +38,7 @@ public interface StopVisitRepository extends JpaRepository<StopVisit, Integer> {
 
     @Query("SELECT COUNT(sv) FROM StopVisit sv WHERE sv.user = ?1 AND sv.stop.location.id = ?2")
     long countVisitedStopsByUserAndLocationId(User user, Integer locationId);
+
+    @Query("SELECT sv FROM StopVisit sv WHERE sv.user = ?1 AND sv.hasPhotoProof = true")
+    List<StopVisit> findVisitsWithPhotoByUser(User user);
 }

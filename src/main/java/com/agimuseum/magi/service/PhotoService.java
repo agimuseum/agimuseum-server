@@ -27,6 +27,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.Objects;
 
+/**
+ * Service for handling photo uploads, storage and retrieval
+ */
 @Service
 @Slf4j
 public class PhotoService {
@@ -52,6 +55,9 @@ public class PhotoService {
         this.stopRepository = stopRepository;
     }
 
+    /**
+     * Upload a photo for a location
+     */
     public Photo uploadLocationPhoto(Integer locationId, MultipartFile file) throws IOException {
         log.debug("Starting upload of location photo for locationId: {}", locationId);
 
@@ -141,6 +147,9 @@ public class PhotoService {
         }
     }
 
+    /**
+     * Upload a photo for a stop
+     */
     public Photo uploadStopPhoto(Integer stopId, MultipartFile file) throws IOException {
         log.debug("Starting upload of stop photo for stopId: {}", stopId);
 
@@ -233,14 +242,14 @@ public class PhotoService {
      * Get all photos for a location
      */
     public List<Photo> getLocationPhotos(Integer locationId) {
-        return photoRepository.findByLocationId(locationId);
+        return photoRepository.findByLocationIdOrderByUploadedAtDesc(locationId);
     }
 
     /**
      * Get all photos for a stop
      */
     public List<Photo> getStopPhotos(Integer stopId) {
-        return photoRepository.findByStopId(stopId);
+        return photoRepository.findByStopIdOrderByUploadedAtDesc(stopId);
     }
 
     /**
@@ -249,6 +258,20 @@ public class PhotoService {
     public List<Photo> getUserPhotos() {
         User currentUser = getCurrentUser();
         return photoRepository.findByUser(currentUser);
+    }
+
+    /**
+     * Get the most recent photo taken by a user at a location
+     */
+    public Photo getUserLocationPhoto(Integer userId, Integer locationId) {
+        return photoRepository.findTopByUserIdAndLocationIdOrderByUploadedAtDesc(userId, locationId);
+    }
+
+    /**
+     * Get the most recent photo taken by a user at a stop
+     */
+    public Photo getUserStopPhoto(Integer userId, Integer stopId) {
+        return photoRepository.findTopByUserIdAndStopIdOrderByUploadedAtDesc(userId, stopId);
     }
 
     /**

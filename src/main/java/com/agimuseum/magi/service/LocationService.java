@@ -47,6 +47,9 @@ public class LocationService {
         return convertToDTO(location);
     }
 
+    /**
+     * Convert a Location entity to a LocationDTO, with enhanced photo handling
+     */
     private LocationDTO convertToDTO(Location location) {
         LocationDTO dto = new LocationDTO();
         dto.setId(location.getId());
@@ -73,10 +76,10 @@ public class LocationService {
             dto.setLocation(detailDTO);
         }
 
-        // Set photos
-        List<Photo> photos = photoRepository.findByLocationId(location.getId());
+        // Set photos - use sorted photos by upload date to get newest first
+        List<Photo> photos = photoRepository.findByLocationIdOrderByUploadedAtDesc(location.getId());
         dto.setPhotos(photos.stream()
-                .map(Photo::getPhotoUrl)
+                .map(Photo::getUrl)
                 .collect(Collectors.toList()));
 
         // Set stops
@@ -95,10 +98,10 @@ public class LocationService {
                     stopLocationDTO.setGeoFenceRadius(stop.getGeoFenceRadius());
                     stopDTO.setLocation(stopLocationDTO);
 
-                    // Set stop photos
-                    List<Photo> stopPhotos = photoRepository.findByStopId(stop.getId());
+                    // Set stop photos - use sorted photos by upload date to get newest first
+                    List<Photo> stopPhotos = photoRepository.findByStopIdOrderByUploadedAtDesc(stop.getId());
                     stopDTO.setPhotos(stopPhotos.stream()
-                            .map(Photo::getPhotoUrl)
+                            .map(Photo::getUrl)
                             .collect(Collectors.toList()));
 
                     return stopDTO;
@@ -107,5 +110,31 @@ public class LocationService {
         dto.setStops(stopDTOs);
 
         return dto;
+    }
+
+    /**
+     * Get a list of photos for a location
+     */
+    public List<String> getLocationPhotos(Integer locationId) {
+        Location location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new RuntimeException("Location not found with id: " + locationId));
+
+        List<Photo> photos = photoRepository.findByLocationIdOrderByUploadedAtDesc(locationId);
+        return photos.stream()
+                .map(Photo::getUrl)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get a list of photos for a stop
+     */
+    public List<String> getStopPhotos(Integer stopId) {
+        Stop stop = stopRepository.findById(stopId)
+                .orElseThrow(() -> new RuntimeException("Stop not found with id: " + stopId));
+
+        List<Photo> photos = photoRepository.findByStopIdOrderByUploadedAtDesc(stopId);
+        return photos.stream()
+                .map(Photo::getUrl)
+                .collect(Collectors.toList());
     }
 }

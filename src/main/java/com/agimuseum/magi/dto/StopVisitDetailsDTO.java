@@ -25,4 +25,9 @@ public class StopVisitDetailsDTO {
     // Additional fields for visit status
     private boolean visited;
     private Date visitedAt;
+
+    // New fields for photo evidence
+    private boolean hasPhotoEvidence;
+    private String visitPhotoUrl;
+    private String visitMethod;
 }

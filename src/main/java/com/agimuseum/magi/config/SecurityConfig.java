@@ -58,8 +58,14 @@ public class SecurityConfig {
             // OPTIONS requests for CORS
             authConfig.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
 
+            // Public GET endpoints for photos - allow viewing photos without authentication
+            authConfig.requestMatchers(HttpMethod.GET, "/api/photos/locations/**").permitAll();
+            authConfig.requestMatchers(HttpMethod.GET, "/api/photos/stops/**").permitAll();
+
             // Specific public GET endpoints
             authConfig.requestMatchers(HttpMethod.GET, "/api/visits/rewards/progress").permitAll();
+            authConfig.requestMatchers(HttpMethod.GET, "/api/locations/**").permitAll();
+            authConfig.requestMatchers(HttpMethod.GET, "/api/stops/**").permitAll();
 
             // API docs if available
             authConfig.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll();
@@ -68,8 +74,8 @@ public class SecurityConfig {
             authConfig.requestMatchers("/api/visits/summary").authenticated();
             authConfig.requestMatchers("/api/visits/**").authenticated();
             authConfig.requestMatchers("/api/users/**").authenticated();
-            authConfig.requestMatchers("/api/photos/**").authenticated();
-            authConfig.requestMatchers("/api/locations/**").authenticated();
+            authConfig.requestMatchers(HttpMethod.POST, "/api/photos/**").authenticated();
+            authConfig.requestMatchers(HttpMethod.DELETE, "/api/photos/**").authenticated();
             authConfig.requestMatchers("/api/profile/**").authenticated();
             authConfig.requestMatchers("/api/account/**").authenticated();
             authConfig.requestMatchers("/api/auth/**").authenticated();

@@ -26,4 +26,9 @@ public class LocationVisitDetailsDTO {
     private boolean visited;
     private Date visitedAt;
     private List<StopVisitDetailsDTO> stops = new ArrayList<>();
+
+    // New fields for photo evidence
+    private boolean hasPhotoEvidence;
+    private String visitPhotoUrl;
+    private String visitMethod;
 }
