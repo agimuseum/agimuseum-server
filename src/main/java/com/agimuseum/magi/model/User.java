@@ -68,6 +68,9 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StopVisit> stopVisits = new ArrayList<>();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserReward> userRewards = new ArrayList<>();
+
     @Column(name = "number_of_people")
     @NotNull(message = "Number of people is required")
     @Min(value = 1, message = "Number of people must be at least 1")
@@ -258,4 +261,6 @@ public class User implements UserDetails {
     public void setPhotos(List<Photo> photos) {
         this.photos = photos;
     }
+
+
 }

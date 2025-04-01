@@ -79,6 +79,8 @@ public class SecurityConfig {
             authConfig.requestMatchers("/api/profile/**").authenticated();
             authConfig.requestMatchers("/api/account/**").authenticated();
             authConfig.requestMatchers("/api/auth/**").authenticated();
+            authConfig.requestMatchers("/api/rewards/**").authenticated();
+            authConfig.requestMatchers("/api/admin/rewards/**").hasRole("ADMIN");
 
             // All other requests
             authConfig.anyRequest().authenticated();
