@@ -5,10 +5,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.FileCopyUtils;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
@@ -38,8 +41,9 @@ public class FirebaseCredentialsHelper {
      * @throws IOException if the credentials file cannot be loaded
      */
     public static GoogleCredentials getFirebaseCredentials(String configPath) throws IOException {
-        InputStream serviceAccount = getServiceAccountStream(configPath);
-        return GoogleCredentials.fromStream(serviceAccount).createScoped(FIREBASE_SCOPES);
+        String serviceAccountJson = getCleanedServiceAccountJson(configPath);
+        InputStream serviceAccountStream = new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8));
+        return GoogleCredentials.fromStream(serviceAccountStream).createScoped(FIREBASE_SCOPES);
     }
 
     /**
@@ -50,29 +54,37 @@ public class FirebaseCredentialsHelper {
      * @throws IOException if the credentials file cannot be loaded
      */
     public static GoogleCredentials getStorageCredentials(String configPath) throws IOException {
-        InputStream serviceAccount = getServiceAccountStream(configPath);
-        return GoogleCredentials.fromStream(serviceAccount).createScoped(STORAGE_SCOPES);
+        String serviceAccountJson = getCleanedServiceAccountJson(configPath);
+        InputStream serviceAccountStream = new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8));
+        return GoogleCredentials.fromStream(serviceAccountStream).createScoped(STORAGE_SCOPES);
     }
 
     /**
-     * Get the service account input stream from either classpath or file system
-     *
-     * @param configPath Path to the service account file
-     * @return InputStream for the service account file
-     * @throws IOException if the file cannot be loaded
+     * Reads the service account JSON file and cleans it to ensure proper formatting.
+     * This helps avoid issues with line breaks or encoding that can cause JWT signature problems.
      */
-    private static InputStream getServiceAccountStream(String configPath) throws IOException {
+    private static String getCleanedServiceAccountJson(String configPath) throws IOException {
         // Try using ClassPathResource first
         Resource resource = new ClassPathResource(configPath);
+        InputStream serviceAccount;
 
         if (resource.exists()) {
             log.info("Loading Firebase configuration from classpath");
-            return resource.getInputStream();
+            serviceAccount = resource.getInputStream();
         } else {
             // Try as a file path
             log.info("Loading Firebase configuration from file system");
-            return new FileInputStream(configPath);
+            serviceAccount = new FileInputStream(configPath);
         }
+
+        // Read the file content as a string
+        byte[] bytes = FileCopyUtils.copyToByteArray(serviceAccount);
+        String jsonContent = new String(bytes, StandardCharsets.UTF_8);
+
+        // Close the input stream
+        serviceAccount.close();
+
+        return jsonContent;
     }
 
     /**
