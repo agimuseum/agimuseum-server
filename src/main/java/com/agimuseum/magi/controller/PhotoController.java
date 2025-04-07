@@ -3,16 +3,13 @@ package com.agimuseum.magi.controller;
 import com.agimuseum.magi.dto.PhotoDTO;
 import com.agimuseum.magi.exception.ResourceNotFoundException;
 import com.agimuseum.magi.model.Photo;
-import com.agimuseum.magi.model.User;
-import com.agimuseum.magi.repository.UserRepository;
 import com.agimuseum.magi.service.PhotoService;
+import com.agimuseum.magi.service.S3StorageService;
 import com.agimuseum.magi.util.PhotoMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,7 +17,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/photos")
@@ -29,12 +25,14 @@ public class PhotoController {
 
     private final PhotoService photoService;
     private final PhotoMapper photoMapper;
-    private final UserRepository userRepository;
+    private final S3StorageService s3StorageService;
 
-    public PhotoController(PhotoService photoService, PhotoMapper photoMapper, UserRepository userRepository) {
+    public PhotoController(PhotoService photoService,
+                           PhotoMapper photoMapper,
+                           S3StorageService s3StorageService) {
         this.photoService = photoService;
         this.photoMapper = photoMapper;
-        this.userRepository = userRepository;
+        this.s3StorageService = s3StorageService;
     }
 
     @PostMapping(value = "/locations/{locationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -53,19 +51,12 @@ public class PhotoController {
                 return ResponseEntity.badRequest().body("File cannot be empty");
             }
 
-            // Check file type (optional)
+            // Check file type
             String contentType = file.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
                 log.warn("Invalid content type: {}", contentType);
                 return ResponseEntity.badRequest().body("Only image files are allowed");
             }
-
-            // Get current user for logging
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String username = auth != null ? auth.getName() : "unknown";
-
-            log.info("Uploading file: {}, type: {}, size: {} bytes, by user: {}",
-                    file.getOriginalFilename(), contentType, file.getSize(), username);
 
             Photo photo = photoService.uploadLocationPhoto(locationId, file);
             log.info("Photo uploaded successfully with ID: {}", photo.getId());
@@ -108,15 +99,12 @@ public class PhotoController {
                 return ResponseEntity.badRequest().body("File cannot be empty");
             }
 
-            // Check file type (optional)
+            // Check file type
             String contentType = file.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
                 log.warn("Invalid content type: {}", contentType);
                 return ResponseEntity.badRequest().body("Only image files are allowed");
             }
-
-            log.info("Uploading file: {}, type: {}, size: {} bytes",
-                    file.getOriginalFilename(), contentType, file.getSize());
 
             Photo photo = photoService.uploadStopPhoto(stopId, file);
             log.info("Photo uploaded successfully with ID: {}", photo.getId());
@@ -174,6 +162,32 @@ public class PhotoController {
             log.error("Error deleting photo", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to delete photo: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Test S3 file upload functionality
+     */
+    @PostMapping(value = "/test-s3", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> testS3Upload(@RequestParam("file") MultipartFile file) {
+        try {
+            String url = s3StorageService.uploadFile(
+                    "tests/",
+                    file.getOriginalFilename(),
+                    file.getBytes(),
+                    file.getContentType()
+            );
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("url", url);
+            result.put("filename", file.getOriginalFilename());
+            result.put("size", file.getSize());
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("S3 test upload failed", e);
+            return ResponseEntity.status(500).body("S3 upload failed: " + e.getMessage());
         }
     }
 }

@@ -27,7 +27,8 @@ public class StopVisitDetailsDTO {
     private Date visitedAt;
 
     // New fields for photo evidence
-    private boolean hasPhotoEvidence;
+    @Builder.Default
+    private boolean hasPhotoEvidence = false;
     private String visitPhotoUrl;
     private String visitMethod;
 }

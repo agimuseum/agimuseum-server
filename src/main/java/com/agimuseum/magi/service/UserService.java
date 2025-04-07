@@ -1,47 +1,41 @@
 package com.agimuseum.magi.service;
 
 import com.agimuseum.magi.dto.UserDTO;
-import com.agimuseum.magi.model.BlacklistedToken;
 import com.agimuseum.magi.model.Photo;
-import com.agimuseum.magi.model.RefreshToken;
 import com.agimuseum.magi.model.User;
 import com.agimuseum.magi.repository.BlacklistedTokenRepository;
 import com.agimuseum.magi.repository.PhotoRepository;
 import com.agimuseum.magi.repository.RefreshTokenRepository;
 import com.agimuseum.magi.repository.UserRepository;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.Storage;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final BlacklistedTokenRepository blacklistedTokenRepository;
     private final PhotoRepository photoRepository;
-    private final Storage storage;
-
-    @Value("${firebase.storage.bucket}")
-    private String storageBucket;
+    private final S3StorageService s3StorageService;
 
     public UserService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        BlacklistedTokenRepository blacklistedTokenRepository,
                        PhotoRepository photoRepository,
-                       Storage storage) {
+                       S3StorageService s3StorageService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.blacklistedTokenRepository = blacklistedTokenRepository;
         this.photoRepository = photoRepository;
-        this.storage = storage;
+        this.s3StorageService = s3StorageService;
     }
 
     public UserDTO getUserById(Integer id) {
@@ -80,12 +74,17 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
 
-        // Delete user photos from Firebase storage
+        // Delete user photos from S3 storage
         List<Photo> userPhotos = photoRepository.findByUser(user);
         for (Photo photo : userPhotos) {
-            // Delete from Firebase storage
-            BlobId blobId = BlobId.of(storageBucket, photo.getFirebasePath());
-            storage.delete(blobId);
+            // Delete from S3 storage if key exists
+            if (photo.getS3Key() != null && !photo.getS3Key().isEmpty()) {
+                try {
+                    s3StorageService.deleteFile(photo.getS3Key());
+                } catch (Exception e) {
+                    log.error("Error deleting photo from S3: {}", e.getMessage());
+                }
+            }
         }
 
         // Delete refresh tokens
@@ -101,6 +100,7 @@ public class UserService {
             }
         } catch (Exception e) {
             // If there's any issue checking the current user, just continue with the deletion
+            log.error("Error checking current user during deletion: {}", e.getMessage());
         }
     }
 
@@ -129,6 +129,7 @@ public class UserService {
             }
         } catch (Exception e) {
             // If there's any issue checking the current user, just continue with the deletion
+            log.error("Error checking current user during soft deletion: {}", e.getMessage());
         }
     }
 

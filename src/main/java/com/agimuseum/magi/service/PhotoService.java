@@ -9,12 +9,7 @@ import com.agimuseum.magi.repository.LocationRepository;
 import com.agimuseum.magi.repository.PhotoRepository;
 import com.agimuseum.magi.repository.StopRepository;
 import com.agimuseum.magi.repository.UserRepository;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Storage;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,32 +18,25 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.Objects;
+import java.util.UUID;
 
-/**
- * Service for handling photo uploads, storage and retrieval
- */
 @Service
 @Slf4j
 public class PhotoService {
 
-    private final Storage storage;
+    private final S3StorageService s3StorageService;
     private final PhotoRepository photoRepository;
     private final UserRepository userRepository;
     private final LocationRepository locationRepository;
     private final StopRepository stopRepository;
 
-    @Value("${firebase.storage.bucket}")
-    private String storageBucket;
-
-    public PhotoService(Storage storage,
+    public PhotoService(S3StorageService s3StorageService,
                         PhotoRepository photoRepository,
                         UserRepository userRepository,
                         LocationRepository locationRepository,
                         StopRepository stopRepository) {
-        this.storage = storage;
+        this.s3StorageService = s3StorageService;
         this.photoRepository = photoRepository;
         this.userRepository = userRepository;
         this.locationRepository = locationRepository;
@@ -87,49 +75,32 @@ public class PhotoService {
 
         // Generate safe filename
         String originalFilename = Objects.requireNonNull(file.getOriginalFilename(), "Filename cannot be null");
-        String fileName = generateFileName(file);
         String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
-        String firebasePath = "locations/" + locationId + "/" + fileName;
+        String filePath = "locations/" + locationId + "/";
 
-        log.debug("Uploading file: {} with content type: {} to path: {}", fileName, contentType, firebasePath);
+        log.debug("Uploading file: {} with content type: {} to path: {}", originalFilename, contentType, filePath);
 
         try {
-            // Add metadata to help with debugging
-            Map<String, String> metadata = Map.of(
-                    "uploadedBy", currentUser.getUsername(),
-                    "originalFilename", originalFilename,
-                    "uploadTimestamp", String.valueOf(System.currentTimeMillis())
+            // Upload to S3
+            String url = s3StorageService.uploadFile(
+                    filePath,
+                    originalFilename,
+                    file.getBytes(),
+                    contentType
             );
 
-            BlobId blobId = BlobId.of(storageBucket, firebasePath);
-            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
-                    .setContentType(contentType)
-                    .setMetadata(metadata)
-                    .build();
-
-            // Log the upload attempt details
-            log.debug("Uploading to bucket: {}, path: {}", storageBucket, firebasePath);
-
-            // Try with Storage.BlobWriteOption to set predefined ACL
-            Blob blob = storage.create(blobInfo, file.getBytes(),
-                    Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
-
-            if (blob == null) {
-                log.error("Failed to create blob in Firebase Storage");
-                throw new IOException("Failed to upload file to Firebase Storage - returned null blob");
-            }
-
-            String url = "https://storage.googleapis.com/" + storageBucket + "/" + firebasePath;
+            String s3Key = s3StorageService.extractKeyFromUrl(url);
             log.debug("File uploaded successfully, URL: {}", url);
 
-            // Create and save photo entity with explicit fileName set
+            // Create and save photo entity
             Photo photo = Photo.builder()
-                    .fileName(fileName)
+                    .fileName(originalFilename)
                     .contentType(contentType)
                     .contentTypeField(contentType)
                     .url(url)
                     .photoUrl(url)
-                    .firebasePath(firebasePath)
+                    .s3Key(s3Key)
+                    .s3Bucket("agimuseum-storage")
                     .referenceId(UUID.randomUUID().toString())
                     .locationId(locationId)
                     .locationName(location.getName())
@@ -142,7 +113,7 @@ public class PhotoService {
 
             return savedPhoto;
         } catch (Exception e) {
-            log.error("Error uploading photo to Firebase Storage", e);
+            log.error("Error uploading photo to S3", e);
             throw new IOException("Failed to upload photo: " + e.getMessage(), e);
         }
     }
@@ -179,46 +150,32 @@ public class PhotoService {
 
         // Generate safe filename
         String originalFilename = Objects.requireNonNull(file.getOriginalFilename(), "Filename cannot be null");
-        String fileName = generateFileName(file);
         String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
-        String firebasePath = "stops/" + stopId + "/" + fileName;
+        String filePath = "stops/" + stopId + "/";
 
-        log.debug("Uploading file: {} with content type: {} to path: {}", fileName, contentType, firebasePath);
+        log.debug("Uploading file: {} with content type: {} to path: {}", originalFilename, contentType, filePath);
 
         try {
-            // Add metadata to help with debugging
-            Map<String, String> metadata = Map.of(
-                    "uploadedBy", currentUser.getUsername(),
-                    "originalFilename", originalFilename,
-                    "uploadTimestamp", String.valueOf(System.currentTimeMillis())
+            // Upload to S3
+            String url = s3StorageService.uploadFile(
+                    filePath,
+                    originalFilename,
+                    file.getBytes(),
+                    contentType
             );
 
-            BlobId blobId = BlobId.of(storageBucket, firebasePath);
-            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
-                    .setContentType(contentType)
-                    .setMetadata(metadata)
-                    .build();
-
-            // Try with Storage.BlobWriteOption to set predefined ACL
-            Blob blob = storage.create(blobInfo, file.getBytes(),
-                    Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
-
-            if (blob == null) {
-                log.error("Failed to create blob in Firebase Storage");
-                throw new IOException("Failed to upload file to Firebase Storage - returned null blob");
-            }
-
-            String url = "https://storage.googleapis.com/" + storageBucket + "/" + firebasePath;
+            String s3Key = s3StorageService.extractKeyFromUrl(url);
             log.debug("File uploaded successfully, URL: {}", url);
 
             // Create and save photo entity
             Photo photo = Photo.builder()
-                    .fileName(fileName)
+                    .fileName(originalFilename)
                     .contentType(contentType)
                     .contentTypeField(contentType)
                     .url(url)
                     .photoUrl(url)
-                    .firebasePath(firebasePath)
+                    .s3Key(s3Key)
+                    .s3Bucket("agimuseum-storage")
                     .referenceId(UUID.randomUUID().toString())
                     .locationId(stop.getLocation().getId())
                     .locationName(stop.getLocation().getName())
@@ -233,7 +190,7 @@ public class PhotoService {
 
             return savedPhoto;
         } catch (Exception e) {
-            log.error("Error uploading photo to Firebase Storage", e);
+            log.error("Error uploading photo to S3", e);
             throw new IOException("Failed to upload photo: " + e.getMessage(), e);
         }
     }
@@ -287,12 +244,23 @@ public class PhotoService {
             throw new IllegalStateException("You don't have permission to delete this photo");
         }
 
-        // Delete from Firebase Storage
-        BlobId blobId = BlobId.of(storageBucket, photo.getFirebasePath());
-        boolean deleted = storage.delete(blobId);
-
-        if (!deleted) {
-            log.warn("Could not delete file from Firebase Storage at path: {}", photo.getFirebasePath());
+        // Delete from S3
+        String s3Key = photo.getS3Key();
+        if (s3Key != null) {
+            boolean deleted = s3StorageService.deleteFile(s3Key);
+            if (!deleted) {
+                log.warn("Could not delete file from S3 with key: {}", s3Key);
+            }
+        } else {
+            // If s3Key is not available, try to extract it from the URL
+            String url = photo.getUrl();
+            s3Key = s3StorageService.extractKeyFromUrl(url);
+            if (s3Key != null) {
+                boolean deleted = s3StorageService.deleteFile(s3Key);
+                if (!deleted) {
+                    log.warn("Could not delete file from S3 with extracted key: {}", s3Key);
+                }
+            }
         }
 
         // Delete from database
@@ -303,14 +271,5 @@ public class PhotoService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return userRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new IllegalStateException("Current user not found"));
-    }
-
-    private String generateFileName(MultipartFile file) {
-        String originalFileName = file.getOriginalFilename();
-        String extension = "";
-        if (originalFileName != null && originalFileName.contains(".")) {
-            extension = originalFileName.substring(originalFileName.lastIndexOf("."));
-        }
-        return UUID.randomUUID().toString() + extension;
     }
 }

@@ -32,6 +32,7 @@ public class PhotoMapper {
                 .uploaderName(photo.getUser() != null ?
                         photo.getUser().getFirstname() + " " + photo.getUser().getLastname() : "Unknown")
                 .uploadedAt(photo.getUploadedAt())
+                // Add S3-specific fields if needed
                 .build();
     }
 

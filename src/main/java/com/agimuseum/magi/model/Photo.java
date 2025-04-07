@@ -33,8 +33,12 @@ public class Photo {
     @Column(name = "photo_url", nullable = false)
     private String photoUrl;
 
-    @Column(name = "firebase_path", nullable = false)
-    private String firebasePath;
+    // S3-specific fields
+    @Column(name = "s3_key")
+    private String s3Key;
+
+    @Column(name = "s3_bucket")
+    private String s3Bucket;
 
     @Column(name = "reference_id", nullable = false)
     private String referenceId;
