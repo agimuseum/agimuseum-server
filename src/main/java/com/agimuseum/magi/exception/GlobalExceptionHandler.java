@@ -92,6 +92,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
+    @ExceptionHandler(PasswordValidationException.class)
+    public ResponseEntity<ErrorResponse> handlePasswordValidation(PasswordValidationException ex) {
+        ErrorResponse error = new ErrorResponse();
+        error.setMessage("Password Validation Failed");
+        error.setDetails(ex.getMessage());
+        error.setTimestamp(LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
         ErrorResponse error = new ErrorResponse();
