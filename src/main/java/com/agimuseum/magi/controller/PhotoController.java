@@ -133,14 +133,24 @@ public class PhotoController {
 
     @GetMapping("/locations/{locationId}")
     public ResponseEntity<List<PhotoDTO>> getLocationPhotos(@PathVariable Integer locationId) {
-        List<Photo> photos = photoService.getLocationPhotos(locationId);
-        return ResponseEntity.ok(photoMapper.toDTOList(photos));
+        try {
+            List<Photo> photos = photoService.getLocationPhotos(locationId);
+            return ResponseEntity.ok(photoMapper.toDTOList(photos));
+        } catch (ResourceNotFoundException e) {
+            log.error("Location not found: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 
     @GetMapping("/stops/{stopId}")
     public ResponseEntity<List<PhotoDTO>> getStopPhotos(@PathVariable Integer stopId) {
-        List<Photo> photos = photoService.getStopPhotos(stopId);
-        return ResponseEntity.ok(photoMapper.toDTOList(photos));
+        try {
+            List<Photo> photos = photoService.getStopPhotos(stopId);
+            return ResponseEntity.ok(photoMapper.toDTOList(photos));
+        } catch (ResourceNotFoundException e) {
+            log.error("Stop not found: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 
     @GetMapping("/user")
@@ -162,32 +172,6 @@ public class PhotoController {
             log.error("Error deleting photo", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to delete photo: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Test S3 file upload functionality
-     */
-    @PostMapping(value = "/test-s3", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> testS3Upload(@RequestParam("file") MultipartFile file) {
-        try {
-            String url = s3StorageService.uploadFile(
-                    "tests/",
-                    file.getOriginalFilename(),
-                    file.getBytes(),
-                    file.getContentType()
-            );
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("url", url);
-            result.put("filename", file.getOriginalFilename());
-            result.put("size", file.getSize());
-
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("S3 test upload failed", e);
-            return ResponseEntity.status(500).body("S3 upload failed: " + e.getMessage());
         }
     }
 }

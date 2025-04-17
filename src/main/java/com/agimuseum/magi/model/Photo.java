@@ -27,10 +27,10 @@ public class Photo {
     @Column(name = "contentType", nullable = false)
     private String contentTypeField;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1024)
     private String url;
 
-    @Column(name = "photo_url", nullable = false)
+    @Column(name = "photo_url", nullable = false, length = 1024)
     private String photoUrl;
 
     // S3-specific fields
@@ -43,10 +43,10 @@ public class Photo {
     @Column(name = "reference_id", nullable = false)
     private String referenceId;
 
-    @Column(name = "location_id", nullable = false)
+    @Column(name = "location_id")
     private Integer locationId;
 
-    @Column(name = "location_name", nullable = false)
+    @Column(name = "location_name")
     private String locationName;
 
     @Column(name = "stop_id")
@@ -72,10 +72,40 @@ public class Photo {
     @Temporal(TemporalType.TIMESTAMP)
     private Date uploadedAt;
 
+    /**
+     * Type of photo (stock, visit proof, etc.)
+     */
+    @Column(name = "photo_type")
+    @Enumerated(EnumType.STRING)
+    private PhotoType photoType;
+
+    /**
+     * Description of the photo (optional)
+     */
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    /**
+     * Whether the photo is approved for display
+     * All photos are approved by default
+     */
+    @Column(name = "approved")
+    private Boolean approved;
+
     @PrePersist
     protected void onCreate() {
         if (uploadedAt == null) {
             uploadedAt = new Date();
+        }
+
+        // Set default photo type if not specified
+        if (photoType == null) {
+            photoType = PhotoType.STOCK;
+        }
+
+        // All photos are approved by default
+        if (approved == null) {
+            approved = true;
         }
     }
 }

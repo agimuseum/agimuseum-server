@@ -1,140 +1,102 @@
 package com.agimuseum.magi.service;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
 
 import com.agimuseum.magi.dto.LocationDTO;
-import com.agimuseum.magi.dto.LocationDetailDTO;
-import com.agimuseum.magi.dto.ParkingAreaDTO;
-import com.agimuseum.magi.dto.StopDTO;
-import com.agimuseum.magi.dto.StopLocationDTO;
 import com.agimuseum.magi.model.Location;
 import com.agimuseum.magi.model.LocationDetail;
-import com.agimuseum.magi.model.ParkingArea;
-import com.agimuseum.magi.model.Photo;
 import com.agimuseum.magi.model.Stop;
-import com.agimuseum.magi.repository.LocationDetailRepository;
-import com.agimuseum.magi.repository.LocationRepository;
-import com.agimuseum.magi.repository.ParkingAreaRepository;
-import com.agimuseum.magi.repository.PhotoRepository;
-import com.agimuseum.magi.repository.StopRepository;
 
-import lombok.RequiredArgsConstructor;
-
-@Service
-@RequiredArgsConstructor
-public class LocationService {
-
-    private final LocationRepository locationRepository;
-    private final LocationDetailRepository locationDetailRepository;
-    private final ParkingAreaRepository parkingAreaRepository;
-    private final StopRepository stopRepository;
-    private final PhotoRepository photoRepository;
-
-    public List<LocationDTO> getAllLocations() {
-        List<Location> locations = locationRepository.findAll();
-        return locations.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    public LocationDTO getLocationById(Integer id) {
-        Location location = locationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
-        return convertToDTO(location);
-    }
+/**
+ * Service interface for location-related operations
+ */
+public interface LocationService {
 
     /**
-     * Convert a Location entity to a LocationDTO, with enhanced photo handling
+     * Get all locations
+     * @return List of all locations as DTOs
      */
-    private LocationDTO convertToDTO(Location location) {
-        LocationDTO dto = new LocationDTO();
-        dto.setId(location.getId());
-        dto.setName(location.getName());
-        dto.setSummary(location.getSummary());
-        dto.setWeblink(location.getWeblink());
-
-        // Set location details
-        LocationDetail detail = locationDetailRepository.findByLocationId(location.getId());
-        if (detail != null) {
-            LocationDetailDTO detailDTO = new LocationDetailDTO();
-            detailDTO.setAddress(detail.getAddress());
-            detailDTO.setLatitude(detail.getLatitude());
-            detailDTO.setLongitude(detail.getLongitude());
-            detailDTO.setGeoFenceRadius(detail.getGeoFenceRadius());
-
-            // Set parking areas
-            List<ParkingArea> parkingAreas = parkingAreaRepository.findByLocationId(location.getId());
-            List<ParkingAreaDTO> parkingAreaDTOs = parkingAreas.stream()
-                    .map(pa -> new ParkingAreaDTO(pa.getName(), pa.getLatitude(), pa.getLongitude()))
-                    .collect(Collectors.toList());
-            detailDTO.setNearbyParkingAreas(parkingAreaDTOs);
-
-            dto.setLocation(detailDTO);
-        }
-
-        // Set photos - use sorted photos by upload date to get newest first
-        List<Photo> photos = photoRepository.findByLocationIdOrderByUploadedAtDesc(location.getId());
-        dto.setPhotos(photos.stream()
-                .map(Photo::getUrl)
-                .collect(Collectors.toList()));
-
-        // Set stops
-        List<Stop> stops = stopRepository.findByLocationId(location.getId());
-        List<StopDTO> stopDTOs = stops.stream()
-                .map(stop -> {
-                    StopDTO stopDTO = new StopDTO();
-                    stopDTO.setId(stop.getId());
-                    stopDTO.setName(stop.getName());
-                    stopDTO.setSummary(stop.getSummary());
-                    stopDTO.setWeblink(stop.getWeblink());
-
-                    StopLocationDTO stopLocationDTO = new StopLocationDTO();
-                    stopLocationDTO.setLatitude(stop.getLatitude());
-                    stopLocationDTO.setLongitude(stop.getLongitude());
-                    stopLocationDTO.setGeoFenceRadius(stop.getGeoFenceRadius());
-                    stopDTO.setLocation(stopLocationDTO);
-
-                    // Set stop photos - use sorted photos by upload date to get newest first
-                    List<Photo> stopPhotos = photoRepository.findByStopIdOrderByUploadedAtDesc(stop.getId());
-                    stopDTO.setPhotos(stopPhotos.stream()
-                            .map(Photo::getUrl)
-                            .collect(Collectors.toList()));
-
-                    return stopDTO;
-                })
-                .collect(Collectors.toList());
-        dto.setStops(stopDTOs);
-
-        return dto;
-    }
+    List<LocationDTO> getAllLocations();
 
     /**
-     * Get a list of photos for a location
+     * Get a location by ID
+     * @param id The location ID
+     * @return The location as a DTO
      */
-    public List<String> getLocationPhotos(Integer locationId) {
-        Location location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new RuntimeException("Location not found with id: " + locationId));
-
-        List<Photo> photos = photoRepository.findByLocationIdOrderByUploadedAtDesc(locationId);
-        return photos.stream()
-                .map(Photo::getUrl)
-                .collect(Collectors.toList());
-    }
+    LocationDTO getLocationById(Integer id);
 
     /**
-     * Get a list of photos for a stop
+     * Get a list of stock photos for a location (not visit proof photos)
+     * @param locationId The location ID
+     * @return List of photo URLs
      */
-    public List<String> getStopPhotos(Integer stopId) {
-        Stop stop = stopRepository.findById(stopId)
-                .orElseThrow(() -> new RuntimeException("Stop not found with id: " + stopId));
+    List<String> getLocationPhotos(Integer locationId);
 
-        List<Photo> photos = photoRepository.findByStopIdOrderByUploadedAtDesc(stopId);
-        return photos.stream()
-                .map(Photo::getUrl)
-                .collect(Collectors.toList());
-    }
+    /**
+     * Get a list of stock photos for a stop (not visit proof photos)
+     * @param stopId The stop ID
+     * @return List of photo URLs
+     */
+    List<String> getStopPhotos(Integer stopId);
+
+    /**
+     * Create a new location
+     * @param location The location to create
+     * @param locationDetail The location details
+     * @return The created location
+     */
+    Location createLocation(Location location, LocationDetail locationDetail);
+
+    /**
+     * Update an existing location
+     * @param id The location ID
+     * @param location The updated location data
+     * @param locationDetail The updated location details
+     * @return The updated location
+     */
+    Location updateLocation(Integer id, Location location, LocationDetail locationDetail);
+
+    /**
+     * Delete a location
+     * @param id The location ID to delete
+     */
+    void deleteLocation(Integer id);
+
+    /**
+     * Add a stop to a location
+     * @param locationId The location ID
+     * @param stop The stop to add
+     * @return The created stop
+     */
+    Stop addStopToLocation(Integer locationId, Stop stop);
+
+    /**
+     * Update a stop
+     * @param stopId The stop ID
+     * @param stop The updated stop data
+     * @return The updated stop
+     */
+    Stop updateStop(Integer stopId, Stop stop);
+
+    /**
+     * Delete a stop
+     * @param stopId The stop ID to delete
+     */
+    void deleteStop(Integer stopId);
+
+    /**
+     * Find locations near a given geographic coordinate
+     * @param latitude The latitude coordinate
+     * @param longitude The longitude coordinate
+     * @param radiusInMeters The search radius in meters
+     * @return List of locations within the specified radius
+     */
+    List<LocationDTO> findNearbyLocations(Double latitude, Double longitude, Double radiusInMeters);
+
+    /**
+     * Search for locations by name or description
+     * @param query The search query
+     * @return List of matching locations
+     */
+    List<LocationDTO> searchLocations(String query);
 }

@@ -288,9 +288,10 @@ public class VisitService {
 
             // If there's no photo URL but we know a photo exists, find the most recent one
             if (photoUrl == null && hasPhotoProof) {
-                Photo latestPhoto = photoRepository.findTopByUserIdAndLocationIdOrderByUploadedAtDesc(user.getId(), locationId);
-                if (latestPhoto != null) {
-                    photoUrl = latestPhoto.getUrl();
+                List<Photo> photos = photoRepository.findByUserIdAndLocationIdAndPhotoTypeOrderByUploadedAtDesc(
+                        user.getId(), locationId, PhotoType.VISIT_PROOF);
+                if (!photos.isEmpty()) {
+                    photoUrl = photos.get(0).getUrl();
                 }
             }
         }
@@ -322,9 +323,10 @@ public class VisitService {
 
                         // If there's no photo URL but we know a photo exists, find the most recent one
                         if (stopPhotoUrl == null && stopHasPhotoProof) {
-                            Photo latestPhoto = photoRepository.findTopByUserIdAndStopIdOrderByUploadedAtDesc(user.getId(), stop.getId());
-                            if (latestPhoto != null) {
-                                stopPhotoUrl = latestPhoto.getUrl();
+                            List<Photo> photos = photoRepository.findByUserIdAndStopIdAndPhotoTypeOrderByUploadedAtDesc(
+                                    user.getId(), stop.getId(), PhotoType.VISIT_PROOF);
+                            if (!photos.isEmpty()) {
+                                stopPhotoUrl = photos.get(0).getUrl();
                             }
                         }
                     }

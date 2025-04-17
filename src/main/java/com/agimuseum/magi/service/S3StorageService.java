@@ -20,13 +20,18 @@ public class S3StorageService {
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
+    private final UrlShortenerService urlShortenerService;
 
     @Value("${aws.s3.bucket}")
     private String bucketName;
 
-    public S3StorageService(S3Client s3Client, S3Presigner s3Presigner) {
+    public S3StorageService(
+            S3Client s3Client,
+            S3Presigner s3Presigner,
+            UrlShortenerService urlShortenerService) {
         this.s3Client = s3Client;
         this.s3Presigner = s3Presigner;
+        this.urlShortenerService = urlShortenerService;
     }
 
     /**
@@ -35,13 +40,17 @@ public class S3StorageService {
      * @param fileName Original file name
      * @param data File data bytes
      * @param contentType MIME type of the file
-     * @return Complete URL to the uploaded file
+     * @return Complete URL to the uploaded file (possibly shortened for DB storage)
      */
     public String uploadFile(String directory, String fileName, byte[] data, String contentType) {
         try {
+            log.debug("Starting S3 upload: directory={}, fileName={}, contentType={}, size={} bytes",
+                    directory, fileName, contentType, data.length);
+
             // Generate a unique file name to avoid collisions
             String uniqueFileName = generateUniqueFileName(fileName);
             String key = directory + uniqueFileName;
+            log.debug("Generated S3 key: {}", key);
 
             // Set metadata including content type
             Map<String, String> metadata = Map.of(
@@ -59,10 +68,17 @@ public class S3StorageService {
 
             // Upload the file
             s3Client.putObject(request, RequestBody.fromBytes(data));
-            log.info("Successfully uploaded file to S3: {}", key);
+            log.debug("Successfully uploaded file to S3: {}", key);
 
             // Generate a URL to the file
-            return generateFileUrl(key);
+            String url = generateFileUrl(key);
+            log.debug("Generated URL for uploaded file: {}", url);
+
+            // If URL is too long, shorten it for database storage
+            String finalUrl = urlShortenerService.shortenIfNeeded(url);
+            log.debug("Final URL (possibly shortened): {}", finalUrl);
+
+            return finalUrl;
         } catch (S3Exception e) {
             log.error("S3 Error uploading file to S3: {} - Status Code: {}, Error Code: {}",
                     e.getMessage(), e.statusCode(), e.awsErrorDetails().errorCode(), e);
@@ -80,18 +96,23 @@ public class S3StorageService {
      */
     public byte[] downloadFile(String key) throws IOException {
         try {
+            log.debug("Downloading file from S3: {}", key);
+
             GetObjectRequest request = GetObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
                     .build();
 
-            return s3Client.getObject(request).readAllBytes();
+            byte[] data = s3Client.getObject(request).readAllBytes();
+            log.debug("Successfully downloaded file from S3: {} ({} bytes)", key, data.length);
+
+            return data;
         } catch (S3Exception e) {
             log.error("S3 Error downloading file from S3: {} - Status Code: {}, Error Code: {}",
                     e.getMessage(), e.statusCode(), e.awsErrorDetails().errorCode(), e);
             throw new IOException("Failed to download file from S3: " + e.getMessage(), e);
         } catch (IOException e) {
-            log.error("Error downloading file from S3", e);
+            log.error("Error downloading file from S3: {}", key, e);
             throw new IOException("Failed to download file from S3: " + e.getMessage(), e);
         }
     }
@@ -103,20 +124,27 @@ public class S3StorageService {
      */
     public boolean deleteFile(String key) {
         try {
+            if (key == null || key.trim().isEmpty()) {
+                log.warn("Cannot delete file with null or empty key");
+                return false;
+            }
+
+            log.debug("Deleting file from S3: {}", key);
+
             DeleteObjectRequest request = DeleteObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
                     .build();
 
             s3Client.deleteObject(request);
-            log.info("Successfully deleted file from S3: {}", key);
+            log.debug("Successfully deleted file from S3: {}", key);
             return true;
         } catch (S3Exception e) {
             log.error("S3 Error deleting file from S3: {} - Status Code: {}, Error Code: {}",
                     e.getMessage(), e.statusCode(), e.awsErrorDetails().errorCode(), e);
             return false;
         } catch (Exception e) {
-            log.error("Error deleting file from S3", e);
+            log.error("Error deleting file from S3: {}", key, e);
             return false;
         }
     }
@@ -129,6 +157,8 @@ public class S3StorageService {
      */
     public String generatePresignedUrl(String key, int expirationMinutes) {
         try {
+            log.debug("Generating presigned URL for key: {} with expiration: {} minutes", key, expirationMinutes);
+
             GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                     .signatureDuration(Duration.ofMinutes(expirationMinutes))
                     .getObjectRequest(GetObjectRequest.builder()
@@ -137,7 +167,14 @@ public class S3StorageService {
                             .build())
                     .build();
 
-            return s3Presigner.presignGetObject(presignRequest).url().toString();
+            String url = s3Presigner.presignGetObject(presignRequest).url().toString();
+            log.debug("Generated presigned URL: {}", url);
+
+            // If the URL is too long for DB storage, shorten it
+            String shortenedUrl = urlShortenerService.shortenIfNeeded(url);
+            log.debug("Final presigned URL (possibly shortened): {}", shortenedUrl);
+
+            return shortenedUrl;
         } catch (Exception e) {
             log.error("Error generating presigned URL for key: {}", key, e);
             // Return a fallback URL that will indicate it's a failure
@@ -154,6 +191,7 @@ public class S3StorageService {
         // return "https://" + bucketName + ".s3.amazonaws.com/" + key;
 
         // For private objects: generate 24-hour presigned URL
+        log.debug("Generating permanent URL via presigned URL with 24 hour expiration for key: {}", key);
         return generatePresignedUrl(key, 24 * 60); // 24 hours
     }
 
@@ -161,20 +199,33 @@ public class S3StorageService {
      * Extract S3 key from URL
      */
     public String extractKeyFromUrl(String url) {
+        if (url == null) {
+            log.warn("Cannot extract key from null URL");
+            return null;
+        }
+
         try {
-            if (url != null && url.contains(".s3.amazonaws.com/")) {
-                int startIndex = url.indexOf(".s3.amazonaws.com/") + ".s3.amazonaws.com/".length();
+            log.debug("Extracting S3 key from URL: {}", url);
+
+            // The URL appears to be in this format:
+            // https://agimuseum-storage.s3.us-east-2.amazonaws.com/stock/locations/2/bc44f0cb-a501-4d16-ab58-3df985ed33a9.png?...
+
+            if (url.contains(".amazonaws.com/")) {
+                int startIndex = url.indexOf(".amazonaws.com/") + ".amazonaws.com/".length();
                 int endIndex = url.indexOf("?", startIndex);
+
                 if (endIndex == -1) {
                     return url.substring(startIndex);
                 } else {
                     return url.substring(startIndex, endIndex);
                 }
             }
+
+            return null;
         } catch (Exception e) {
             log.error("Error extracting key from URL: {}", url, e);
+            return null;
         }
-        return null;
     }
 
     /**
@@ -182,9 +233,11 @@ public class S3StorageService {
      */
     protected String generateUniqueFileName(String originalFilename) {
         String extension = "";
-        if (originalFilename.contains(".")) {
+        if (originalFilename != null && originalFilename.contains(".")) {
             extension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
-        return UUID.randomUUID().toString() + extension;
+        String uniqueName = UUID.randomUUID().toString() + extension;
+        log.debug("Generated unique filename: {} from original: {}", uniqueName, originalFilename);
+        return uniqueName;
     }
 }

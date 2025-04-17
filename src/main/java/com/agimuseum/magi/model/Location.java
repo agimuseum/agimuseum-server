@@ -17,11 +17,12 @@ import lombok.NoArgsConstructor;
 public class Location {
     @Id
     private Integer id;
-    private String name;
 
+    private String name;
 
     @Column(columnDefinition = "LONGTEXT")
     private String summary;
+
     private String weblink;
 
     @OneToOne(mappedBy = "location", cascade = CascadeType.ALL, orphanRemoval = true)
