@@ -20,10 +20,18 @@ public interface VisitPhotoService {
      *
      * @param locationId ID of the location being visited
      * @param file Photo file as proof of visit
+     * @param deleteExisting whether to delete existing photos for this location
      * @return The location visit info
      * @throws IOException If there's an error handling the file
      */
-    LocationVisitDTO uploadLocationVisitPhoto(Integer locationId, MultipartFile file) throws IOException;
+    LocationVisitDTO uploadLocationVisitPhoto(Integer locationId, MultipartFile file, boolean deleteExisting) throws IOException;
+
+    /**
+     * Legacy method without deleteExisting parameter
+     */
+    default LocationVisitDTO uploadLocationVisitPhoto(Integer locationId, MultipartFile file) throws IOException {
+        return uploadLocationVisitPhoto(locationId, file, true);
+    }
 
     /**
      * Uploads a photo for a stop visit and marks the stop as visited
@@ -31,18 +39,18 @@ public interface VisitPhotoService {
      *
      * @param stopId ID of the stop being visited
      * @param file Photo file as proof of visit
+     * @param deleteExisting whether to delete existing photos for this stop
      * @return The stop visit info
      * @throws IOException If there's an error handling the file
      */
-    StopVisitDTO uploadStopVisitPhoto(Integer stopId, MultipartFile file) throws IOException;
+    StopVisitDTO uploadStopVisitPhoto(Integer stopId, MultipartFile file, boolean deleteExisting) throws IOException;
 
     /**
-     * Gets the most recent visit photo for a location taken by the current user
-     *
-     * @param locationId ID of the location
-     * @return The photo DTO
+     * Legacy method without deleteExisting parameter
      */
-    PhotoDTO getUserLocationVisitPhoto(Integer locationId);
+    default StopVisitDTO uploadStopVisitPhoto(Integer stopId, MultipartFile file) throws IOException {
+        return uploadStopVisitPhoto(stopId, file, true);
+    }
 
     /**
      * Gets all visit photos for a location taken by the current user
@@ -51,14 +59,6 @@ public interface VisitPhotoService {
      * @return List of photo DTOs
      */
     List<PhotoDTO> getUserLocationVisitPhotos(Integer locationId);
-
-    /**
-     * Gets the most recent visit photo for a stop taken by the current user
-     *
-     * @param stopId ID of the stop
-     * @return The photo DTO
-     */
-    PhotoDTO getUserStopVisitPhoto(Integer stopId);
 
     /**
      * Gets all visit photos for a stop taken by the current user
@@ -75,6 +75,22 @@ public interface VisitPhotoService {
      * @throws IOException If there's an error deleting the file
      */
     void deleteVisitPhoto(Integer photoId) throws IOException;
+
+    /**
+     * Delete all existing visit proof photos for a location
+     *
+     * @param locationId ID of the location
+     * @throws IOException If there's an error deleting any of the files
+     */
+    void deleteExistingLocationVisitPhotos(Integer locationId) throws IOException;
+
+    /**
+     * Delete all existing visit proof photos for a stop
+     *
+     * @param stopId ID of the stop
+     * @throws IOException If there's an error deleting any of the files
+     */
+    void deleteExistingStopVisitPhotos(Integer stopId) throws IOException;
 
     /**
      * Check if a user has visited a location with photo proof

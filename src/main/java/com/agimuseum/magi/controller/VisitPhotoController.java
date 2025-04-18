@@ -1,7 +1,7 @@
 package com.agimuseum.magi.controller;
 
-import com.agimuseum.magi.dto.PhotoDTO;
 import com.agimuseum.magi.dto.LocationVisitDTO;
+import com.agimuseum.magi.dto.PhotoDTO;
 import com.agimuseum.magi.dto.StopVisitDTO;
 import com.agimuseum.magi.exception.ResourceNotFoundException;
 import com.agimuseum.magi.service.VisitPhotoService;
@@ -75,10 +75,13 @@ public class VisitPhotoController {
             List<LocationVisitDTO> visits = new ArrayList<>();
             LocationVisitDTO finalVisit = null;
 
+            // Delete any existing photos first before uploading new ones
+            // This ensures we start with a clean slate
+            visitPhotoService.deleteExistingLocationVisitPhotos(locationId);
+
             // Upload all photos one by one
-            // Each upload will automatically delete existing photos for this location and user
             for (MultipartFile file : files) {
-                finalVisit = visitPhotoService.uploadLocationVisitPhoto(locationId, file);
+                finalVisit = visitPhotoService.uploadLocationVisitPhoto(locationId, file, false);
                 visits.add(finalVisit);
             }
 
@@ -109,7 +112,7 @@ public class VisitPhotoController {
     /**
      * Upload a single photo for a location visit and mark the location as visited
      * Backward compatibility with single file upload API
-     * Deletes all existing visit proof photos for this location and user first
+     * Delegates to the multi-file upload method
      */
     @PostMapping(value = "/location/{locationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadSingleLocationVisitPhoto(
@@ -118,45 +121,9 @@ public class VisitPhotoController {
 
         log.info("Received request to upload single visit photo for location ID: {}", locationId);
 
-        try {
-            // Validate file
-            if (file == null || file.isEmpty()) {
-                log.warn("File is empty or null");
-                return ApiErrorUtil.createBadRequestResponse("File cannot be empty");
-            }
-
-            // Check file type
-            String contentType = file.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                log.warn("Invalid content type: {}", contentType);
-                return ApiErrorUtil.createBadRequestResponse("Only image files are allowed");
-            }
-
-            // Process file (this will delete any existing photos)
-            LocationVisitDTO visit = visitPhotoService.uploadLocationVisitPhoto(locationId, file);
-
-            // Return result
-            Map<String, Object> result = new HashMap<>();
-            result.put("location", visit.getLocationName());
-            result.put("locationId", locationId);
-            result.put("visitedAt", visit.getVisitedAt());
-            result.put("hasPhotoProof", true);
-            result.put("photoUrl", visit.getPhotoUrl());
-            result.put("message", "Successfully uploaded visit proof photo");
-
-            log.info("Successfully uploaded photo for location ID: {}", locationId);
-            return ResponseEntity.status(HttpStatus.CREATED).body(result);
-
-        } catch (ResourceNotFoundException e) {
-            log.error("Resource not found: {}", e.getMessage());
-            return ApiErrorUtil.createNotFoundResponse("Location", locationId);
-        } catch (IllegalStateException e) {
-            log.error("Bad request: {}", e.getMessage());
-            return ApiErrorUtil.createBadRequestResponse(e.getMessage());
-        } catch (IOException e) {
-            log.error("Failed to upload visit photo", e);
-            return ApiErrorUtil.createInternalServerErrorResponse("Failed to upload visit photo: " + e.getMessage());
-        }
+        // Create an array with the single file and delegate to the multi-file method
+        MultipartFile[] files = new MultipartFile[] { file };
+        return uploadLocationVisitPhotos(locationId, files);
     }
 
     /**
@@ -201,10 +168,12 @@ public class VisitPhotoController {
             List<StopVisitDTO> visits = new ArrayList<>();
             StopVisitDTO finalVisit = null;
 
+            // Delete any existing photos first before uploading new ones
+            visitPhotoService.deleteExistingStopVisitPhotos(stopId);
+
             // Upload all photos one by one
-            // Each upload will automatically delete existing photos for this stop and user
             for (MultipartFile file : files) {
-                finalVisit = visitPhotoService.uploadStopVisitPhoto(stopId, file);
+                finalVisit = visitPhotoService.uploadStopVisitPhoto(stopId, file, false);
                 visits.add(finalVisit);
             }
 
@@ -237,7 +206,7 @@ public class VisitPhotoController {
     /**
      * Upload a single photo for a stop visit and mark the stop as visited
      * Backward compatibility with single file upload API
-     * Deletes all existing visit proof photos for this stop and user first
+     * Delegates to the multi-file upload method
      */
     @PostMapping(value = "/stop/{stopId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadSingleStopVisitPhoto(
@@ -246,47 +215,9 @@ public class VisitPhotoController {
 
         log.info("Received request to upload single visit photo for stop ID: {}", stopId);
 
-        try {
-            // Validate file
-            if (file == null || file.isEmpty()) {
-                log.warn("File is empty or null");
-                return ApiErrorUtil.createBadRequestResponse("File cannot be empty");
-            }
-
-            // Check file type
-            String contentType = file.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                log.warn("Invalid content type: {}", contentType);
-                return ApiErrorUtil.createBadRequestResponse("Only image files are allowed");
-            }
-
-            // Process file (this will delete any existing photos)
-            StopVisitDTO visit = visitPhotoService.uploadStopVisitPhoto(stopId, file);
-
-            // Return result
-            Map<String, Object> result = new HashMap<>();
-            result.put("stop", visit.getStopName());
-            result.put("stopId", stopId);
-            result.put("location", visit.getLocationName());
-            result.put("locationId", visit.getLocationId());
-            result.put("visitedAt", visit.getVisitedAt());
-            result.put("hasPhotoProof", true);
-            result.put("photoUrl", visit.getPhotoUrl());
-            result.put("message", "Successfully uploaded visit proof photo");
-
-            log.info("Successfully uploaded photo for stop ID: {}", stopId);
-            return ResponseEntity.status(HttpStatus.CREATED).body(result);
-
-        } catch (ResourceNotFoundException e) {
-            log.error("Resource not found: {}", e.getMessage());
-            return ApiErrorUtil.createNotFoundResponse("Stop", stopId);
-        } catch (IllegalStateException e) {
-            log.error("Bad request: {}", e.getMessage());
-            return ApiErrorUtil.createBadRequestResponse(e.getMessage());
-        } catch (IOException e) {
-            log.error("Failed to upload visit photo", e);
-            return ApiErrorUtil.createInternalServerErrorResponse("Failed to upload visit photo: " + e.getMessage());
-        }
+        // Create an array with the single file and delegate to the multi-file method
+        MultipartFile[] files = new MultipartFile[] { file };
+        return uploadStopVisitPhotos(stopId, files);
     }
 
     /**

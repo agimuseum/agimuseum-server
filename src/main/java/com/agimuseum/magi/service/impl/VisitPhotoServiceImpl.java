@@ -25,7 +25,7 @@ import java.util.UUID;
 
 /**
  * Implementation of VisitPhotoService to handle photos used as proof of visits
- * Modified to automatically approve all photos
+ * Modified to automatically approve all photos and support multiple photos per location/stop
  */
 @Service
 @RequiredArgsConstructor
@@ -47,7 +47,7 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
      */
     @Override
     @Transactional
-    public LocationVisitDTO uploadLocationVisitPhoto(Integer locationId, MultipartFile file) throws IOException {
+    public LocationVisitDTO uploadLocationVisitPhoto(Integer locationId, MultipartFile file, boolean deleteExisting) throws IOException {
         log.info("Uploading location visit proof photo for locationId: {}", locationId);
 
         if (file == null || file.isEmpty()) {
@@ -62,24 +62,9 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
         Location location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + locationId));
 
-        // Delete existing visit proof photos for this location and user
-        List<Photo> existingPhotos = photoRepository.findByUserAndLocationIdAndPhotoType(
-                currentUser, locationId, PhotoType.VISIT_PROOF);
-
-        log.info("Found {} existing proof photos to delete for location {}", existingPhotos.size(), locationId);
-
-        for (Photo existingPhoto : existingPhotos) {
-            try {
-                log.info("Deleting existing photo with ID: {} and S3 key: {}", existingPhoto.getId(), existingPhoto.getS3Key());
-                if (existingPhoto.getS3Key() != null) {
-                    boolean deleted = s3StorageService.deleteFile(existingPhoto.getS3Key());
-                    log.info("S3 file deletion result: {}", deleted);
-                }
-                photoRepository.delete(existingPhoto);
-                log.info("Successfully deleted existing photo from database");
-            } catch (Exception e) {
-                log.error("Error deleting existing photo: {}", e.getMessage(), e);
-            }
+        // Delete existing visit proof photos for this location and user if requested
+        if (deleteExisting) {
+            deleteExistingLocationVisitPhotos(locationId);
         }
 
         // Upload new photo to S3
@@ -164,7 +149,7 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
      */
     @Override
     @Transactional
-    public StopVisitDTO uploadStopVisitPhoto(Integer stopId, MultipartFile file) throws IOException {
+    public StopVisitDTO uploadStopVisitPhoto(Integer stopId, MultipartFile file, boolean deleteExisting) throws IOException {
         log.info("Uploading stop visit proof photo for stopId: {}", stopId);
 
         if (file == null || file.isEmpty()) {
@@ -179,24 +164,9 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
         Stop stop = stopRepository.findById(stopId)
                 .orElseThrow(() -> new ResourceNotFoundException("Stop not found with id: " + stopId));
 
-        // Delete existing visit proof photos for this stop and user
-        List<Photo> existingPhotos = photoRepository.findByUserAndStopIdAndPhotoType(
-                currentUser, stopId, PhotoType.VISIT_PROOF);
-
-        log.info("Found {} existing proof photos to delete for stop {}", existingPhotos.size(), stopId);
-
-        for (Photo existingPhoto : existingPhotos) {
-            try {
-                log.info("Deleting existing photo with ID: {} and S3 key: {}", existingPhoto.getId(), existingPhoto.getS3Key());
-                if (existingPhoto.getS3Key() != null) {
-                    boolean deleted = s3StorageService.deleteFile(existingPhoto.getS3Key());
-                    log.info("S3 file deletion result: {}", deleted);
-                }
-                photoRepository.delete(existingPhoto);
-                log.info("Successfully deleted existing photo from database");
-            } catch (Exception e) {
-                log.error("Error deleting existing photo: {}", e.getMessage(), e);
-            }
+        // Delete existing visit proof photos for this stop and user if requested
+        if (deleteExisting) {
+            deleteExistingStopVisitPhotos(stopId);
         }
 
         // Upload new photo to S3
@@ -294,7 +264,6 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
                 .build();
     }
 
-    // Other methods from VisitPhotoService interface...
     @Override
     public List<PhotoDTO> getUserLocationVisitPhotos(Integer locationId) {
         User user = getCurrentUser();
@@ -314,7 +283,6 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
         return photoMapper.toDTOList(photos);
     }
 
-    @Override
     public PhotoDTO getUserLocationVisitPhoto(Integer locationId) {
         User user = getCurrentUser();
 
@@ -353,7 +321,6 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
         return photoMapper.toDTOList(photos);
     }
 
-    @Override
     public PhotoDTO getUserStopVisitPhoto(Integer stopId) {
         User user = getCurrentUser();
 
@@ -409,6 +376,60 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
         // Update stop visit if this was the only photo proof
         if (photo.getStopId() != null) {
             updateStopVisitAfterPhotoDeletion(currentUser, photo.getStopId());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteExistingLocationVisitPhotos(Integer locationId) throws IOException {
+        User currentUser = getCurrentUser();
+
+        // Find all visit proof photos for this location and user
+        List<Photo> existingPhotos = photoRepository.findByUserAndLocationIdAndPhotoType(
+                currentUser, locationId, PhotoType.VISIT_PROOF);
+
+        log.info("Found {} existing proof photos to delete for location {}", existingPhotos.size(), locationId);
+
+        for (Photo existingPhoto : existingPhotos) {
+            try {
+                log.info("Deleting existing photo with ID: {} and S3 key: {}", existingPhoto.getId(), existingPhoto.getS3Key());
+                if (existingPhoto.getS3Key() != null) {
+                    boolean deleted = s3StorageService.deleteFile(existingPhoto.getS3Key());
+                    log.info("S3 file deletion result: {}", deleted);
+                }
+                photoRepository.delete(existingPhoto);
+                log.info("Successfully deleted existing photo from database");
+            } catch (Exception e) {
+                log.error("Error deleting existing photo: {}", e.getMessage(), e);
+                // Continue with other photos even if one fails to delete
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteExistingStopVisitPhotos(Integer stopId) throws IOException {
+        User currentUser = getCurrentUser();
+
+        // Find all visit proof photos for this stop and user
+        List<Photo> existingPhotos = photoRepository.findByUserAndStopIdAndPhotoType(
+                currentUser, stopId, PhotoType.VISIT_PROOF);
+
+        log.info("Found {} existing proof photos to delete for stop {}", existingPhotos.size(), stopId);
+
+        for (Photo existingPhoto : existingPhotos) {
+            try {
+                log.info("Deleting existing photo with ID: {} and S3 key: {}", existingPhoto.getId(), existingPhoto.getS3Key());
+                if (existingPhoto.getS3Key() != null) {
+                    boolean deleted = s3StorageService.deleteFile(existingPhoto.getS3Key());
+                    log.info("S3 file deletion result: {}", deleted);
+                }
+                photoRepository.delete(existingPhoto);
+                log.info("Successfully deleted existing photo from database");
+            } catch (Exception e) {
+                log.error("Error deleting existing photo: {}", e.getMessage(), e);
+                // Continue with other photos even if one fails to delete
+            }
         }
     }
 
