@@ -33,9 +33,6 @@ public interface PhotoRepository extends JpaRepository<Photo, Integer> {
     // Find approved photos by type and location ordered by upload date
     List<Photo> findByLocationIdAndPhotoTypeAndApprovedTrueOrderByUploadedAtDesc(Integer locationId, PhotoType photoType);
 
-    // This method was missing and causing the compilation errors
-    List<Photo> findByLocationIdAndPhotoTypeAndApprovedIsTrueOrderByUploadedAtDesc(Integer locationId, PhotoType photoType);
-
     // Find photos by stop
     List<Photo> findByStopId(Integer stopId);
 
@@ -56,9 +53,6 @@ public interface PhotoRepository extends JpaRepository<Photo, Integer> {
 
     // Find approved photos by type and stop ordered by upload date
     List<Photo> findByStopIdAndPhotoTypeAndApprovedTrueOrderByUploadedAtDesc(Integer stopId, PhotoType photoType);
-
-    // This method was missing and causing the compilation errors
-    List<Photo> findByStopIdAndPhotoTypeAndApprovedIsTrueOrderByUploadedAtDesc(Integer stopId, PhotoType photoType);
 
     // Find photos by user and location
     List<Photo> findByUserAndLocationId(User user, Integer locationId);
@@ -115,6 +109,7 @@ public interface PhotoRepository extends JpaRepository<Photo, Integer> {
     // Find photos pending approval
     List<Photo> findByApprovedFalseOrderByUploadedAtAsc();
 
+    // Find approved photos for a location ordered by uploaded date
     List<Photo> findByLocationIdAndApprovedTrueOrderByUploadedAtDesc(Integer locationId);
 
     // Find photos pending approval by type

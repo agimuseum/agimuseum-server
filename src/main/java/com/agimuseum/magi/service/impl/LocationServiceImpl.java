@@ -61,42 +61,47 @@ public class LocationServiceImpl implements LocationService {
 
 
     /**
-     * Get a list of photos for a location
-     * Modified to return all photos without filtering by approval status
+     * Get a list of stock photos for a location (not visit proof photos)
+     * Modified to only return STOCK photos
      */
     @Override
     public List<String> getLocationPhotos(Integer locationId) {
-        log.debug("Fetching photos for location ID: {}", locationId);
+        log.debug("Fetching stock photos for location ID: {}", locationId);
         Location location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + locationId));
 
-        // Get all photos for this location
-        List<Photo> photos = photoRepository.findByLocationIdOrderByUploadedAtDesc(locationId);
+        // Get only STOCK photos for this location
+        List<Photo> photos = photoRepository.findByLocationIdAndPhotoTypeAndApprovedTrueOrderByUploadedAtDesc(
+                locationId, PhotoType.STOCK);
+
         return photos.stream()
                 .map(Photo::getUrl)
                 .collect(Collectors.toList());
     }
-
     /**
-     * Get a list of photos for a stop
-     * Modified to return all photos without filtering by approval status
+     * Get a list of stock photos for a stop (not visit proof photos)
+     * Modified to only return STOCK photos
      */
     @Override
     public List<String> getStopPhotos(Integer stopId) {
-        log.debug("Fetching photos for stop ID: {}", stopId);
+        log.debug("Fetching stock photos for stop ID: {}", stopId);
         Stop stop = stopRepository.findById(stopId)
                 .orElseThrow(() -> new ResourceNotFoundException("Stop not found with id: " + stopId));
 
-        // Get all photos for this stop
-        List<Photo> photos = photoRepository.findByStopIdOrderByUploadedAtDesc(stopId);
+        // Get only STOCK photos for this stop
+        List<Photo> photos = photoRepository.findByStopIdAndPhotoTypeAndApprovedTrueOrderByUploadedAtDesc(
+                stopId, PhotoType.STOCK);
+
         return photos.stream()
                 .map(Photo::getUrl)
                 .collect(Collectors.toList());
     }
 
+
+
     /**
      * Convert a Location entity to a LocationDTO
-     * Modified to include all photos without filtering by approval status
+     * Modified to include only stock photos, not visit proof photos
      */
     private LocationDTO convertToDTO(Location location) {
         LocationDTO dto = new LocationDTO();
@@ -124,8 +129,9 @@ public class LocationServiceImpl implements LocationService {
             dto.setLocation(detailDTO);
         }
 
-        // Set all photos - no longer filtering by approval status
-        List<Photo> photos = photoRepository.findByLocationIdOrderByUploadedAtDesc(location.getId());
+        // Set only STOCK photos - filter by type and approved
+        List<Photo> photos = photoRepository.findByLocationIdAndPhotoTypeAndApprovedTrueOrderByUploadedAtDesc(
+                location.getId(), PhotoType.STOCK);
         dto.setPhotos(photos.stream()
                 .map(Photo::getUrl)
                 .collect(Collectors.toList()));
@@ -146,8 +152,9 @@ public class LocationServiceImpl implements LocationService {
                     stopLocationDTO.setGeoFenceRadius(stop.getGeoFenceRadius());
                     stopDTO.setLocation(stopLocationDTO);
 
-                    // Set all photos for the stop - no longer filtering by approval status
-                    List<Photo> stopPhotos = photoRepository.findByStopIdOrderByUploadedAtDesc(stop.getId());
+                    // Set only STOCK photos for the stop - filter by type and approved
+                    List<Photo> stopPhotos = photoRepository.findByStopIdAndPhotoTypeAndApprovedTrueOrderByUploadedAtDesc(
+                            stop.getId(), PhotoType.STOCK);
                     stopDTO.setPhotos(stopPhotos.stream()
                             .map(Photo::getUrl)
                             .collect(Collectors.toList()));
@@ -159,7 +166,6 @@ public class LocationServiceImpl implements LocationService {
 
         return dto;
     }
-
 
 
 
