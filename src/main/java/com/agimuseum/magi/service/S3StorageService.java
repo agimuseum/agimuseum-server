@@ -25,6 +25,9 @@ public class S3StorageService {
     @Value("${aws.s3.bucket}")
     private String bucketName;
 
+    @Value("${aws.region}")
+    private String awsRegion;
+
     public S3StorageService(
             S3Client s3Client,
             S3Presigner s3Presigner,
@@ -58,21 +61,23 @@ public class S3StorageService {
                     "Original-Filename", fileName
             );
 
-            // Create the PutObjectRequest
+            // Create the PutObjectRequest WITHOUT the ACL
             PutObjectRequest request = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
                     .contentType(contentType)
                     .metadata(metadata)
+                    // Remove the ACL line
+                    // .acl(ObjectCannedACL.PUBLIC_READ) // Don't use ACL - rely on bucket policy instead
                     .build();
 
             // Upload the file
             s3Client.putObject(request, RequestBody.fromBytes(data));
             log.debug("Successfully uploaded file to S3: {}", key);
 
-            // Generate a URL to the file
-            String url = generateFileUrl(key);
-            log.debug("Generated URL for uploaded file: {}", url);
+            // Generate a direct URL to the file (no expiration)
+            String url = generateDirectUrl(key);
+            log.debug("Generated direct URL for uploaded file: {}", url);
 
             // If URL is too long, shorten it for database storage
             String finalUrl = urlShortenerService.shortenIfNeeded(url);
@@ -87,6 +92,17 @@ public class S3StorageService {
             log.error("Error uploading file to S3", e);
             throw new RuntimeException("Failed to upload file to S3: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Generate a direct URL for the file (no expiration)
+     */
+    protected String generateDirectUrl(String key) {
+        // Generate direct S3 URL
+        String directUrl = String.format("https://%s.s3.%s.amazonaws.com/%s",
+                bucketName, awsRegion, key);
+        log.debug("Generated direct URL: {}", directUrl);
+        return directUrl;
     }
 
     /**
@@ -151,9 +167,7 @@ public class S3StorageService {
 
     /**
      * Generate a presigned URL for temporary access to a private object
-     * @param key File key (path) in S3
-     * @param expirationMinutes How long the URL should be valid
-     * @return Presigned URL
+     * Only use this when temporary access is specifically needed
      */
     public String generatePresignedUrl(String key, int expirationMinutes) {
         try {
@@ -184,15 +198,12 @@ public class S3StorageService {
     }
 
     /**
-     * Generate a permanent URL for the file (for public buckets or requires presigned URL for private)
+     * Generate a permanent URL for the file
+     * Updated to use direct URLs instead of presigned URLs
      */
     protected String generateFileUrl(String key) {
-        // For public objects: direct S3 URL
-        // return "https://" + bucketName + ".s3.amazonaws.com/" + key;
-
-        // For private objects: generate 24-hour presigned URL
-        log.debug("Generating permanent URL via presigned URL with 24 hour expiration for key: {}", key);
-        return generatePresignedUrl(key, 24 * 60); // 24 hours
+        log.debug("Generating permanent URL for key: {}", key);
+        return generateDirectUrl(key);
     }
 
     /**
