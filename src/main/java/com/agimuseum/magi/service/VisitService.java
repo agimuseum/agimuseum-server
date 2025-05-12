@@ -485,4 +485,40 @@ public class VisitService {
 
         return builder.build();
     }
+
+    /**
+     * Get all locations with visit summary information for the current user
+     * @return List of location summaries including visit status and stop statistics
+     */
+    public List<LocationSummaryDTO> getLocationSummaries() {
+        User user = getCurrentUser();
+        List<Location> allLocations = locationRepository.findAll();
+
+        return allLocations.stream()
+                .map(location -> {
+                    // Check if location is visited
+                    boolean isVisited = locationVisitRepository.existsByUserAndLocation(user, location);
+
+                    // Get stops for this location
+                    List<Stop> stops = stopRepository.findByLocationId(location.getId());
+                    int totalStops = stops.size();
+
+                    // Count visited stops
+                    long visitedStops = 0;
+                    if (!stops.isEmpty()) {
+                        visitedStops = stops.stream()
+                                .filter(stop -> stopVisitRepository.existsByUserAndStop(user, stop))
+                                .count();
+                    }
+
+                    return LocationSummaryDTO.builder()
+                            .id(location.getId())
+                            .name(location.getName())
+                            .isVisited(isVisited)
+                            .totalNumberOfStops(totalStops)
+                            .totalNumberOfVisitedStops((int) visitedStops)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
 }
