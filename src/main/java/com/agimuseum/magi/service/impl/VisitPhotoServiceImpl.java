@@ -18,10 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * Implementation of VisitPhotoService to handle photos used as proof of visits
@@ -276,8 +273,9 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
         List<Photo> photos = photoRepository.findByUserAndLocationIdAndPhotoType(
                 user, locationId, PhotoType.VISIT_PROOF);
 
+        // Return empty list if no photos found, instead of throwing exception
         if (photos.isEmpty()) {
-            throw new ResourceNotFoundException("No visit proof photos found for this location");
+            return new ArrayList<>();  // Return empty list
         }
 
         return photoMapper.toDTOList(photos);
@@ -314,8 +312,9 @@ public class VisitPhotoServiceImpl implements VisitPhotoService {
         List<Photo> photos = photoRepository.findByUserAndStopIdAndPhotoType(
                 user, stopId, PhotoType.VISIT_PROOF);
 
+        // Return empty list if no photos found, instead of throwing exception
         if (photos.isEmpty()) {
-            throw new ResourceNotFoundException("No visit proof photos found for this stop");
+            return new ArrayList<>();  // Return empty list
         }
 
         return photoMapper.toDTOList(photos);
